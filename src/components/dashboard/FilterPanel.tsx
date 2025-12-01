@@ -1,6 +1,6 @@
 import { FilterState } from '@/types/shipping';
 import { cn } from '@/lib/utils';
-import { SlidersHorizontal, X, Calendar, Users, Ship, MapPin } from 'lucide-react';
+import { Settings2, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface FilterPanelProps {
@@ -29,39 +29,33 @@ export function FilterPanel({
   const hasActiveFilters = filters.weeks.length > 0 || filters.suppliers.length > 0 || filters.sLines.length > 0 || filters.pols.length > 0;
 
   return (
-    <aside className="w-56 bg-card/50 backdrop-blur-sm border-l border-border/50 p-4 space-y-4 overflow-y-auto animate-slide-in-right">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-1 pb-2 border-b border-border/50">
-        <SlidersHorizontal className="w-4 h-4 text-primary" />
-        <h2 className="font-heading font-semibold text-sm text-foreground">Filters</h2>
-      </div>
-
+    <aside className="w-52 bg-background border-l border-border p-3 space-y-4 overflow-y-auto">
       {hasActiveFilters && (
         <button
           onClick={onClearFilters}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-destructive/10 text-destructive rounded-xl text-sm font-medium hover:bg-destructive/15 transition-all duration-200"
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-destructive/10 text-destructive rounded-lg text-sm font-medium hover:bg-destructive/20 transition-colors"
         >
           <X className="w-4 h-4" />
-          Clear All
+          Clear Filters
         </button>
       )}
 
       {/* Year Filter */}
       <div className="filter-panel">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-semibold text-xs font-heading uppercase tracking-wider text-muted-foreground">Year</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm font-heading">Year</h3>
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-1">
           {years.map(year => (
             <button
               key={year}
               onClick={() => onUpdateFilter('year', year)}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                'w-full text-left px-3 py-1.5 rounded text-sm transition-colors',
                 filters.year === year
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-muted'
               )}
             >
               {year}
@@ -72,21 +66,21 @@ export function FilterPanel({
 
       {/* Week Filter */}
       <div className="filter-panel">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-semibold text-xs font-heading uppercase tracking-wider text-muted-foreground">Week</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm font-heading">WEEK</h3>
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
         </div>
-        <ScrollArea className="h-36">
-          <div className="grid grid-cols-4 gap-1.5 pr-2">
+        <ScrollArea className="h-40">
+          <div className="grid grid-cols-2 gap-1">
             {weeks.slice(0, 52).map(week => (
               <button
                 key={week}
                 onClick={() => onToggleArrayFilter('weeks', week)}
                 className={cn(
-                  'px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                  'px-2 py-1 rounded text-xs transition-colors',
                   filters.weeks.includes(week)
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted/30 text-muted-foreground hover:bg-muted/60'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/70'
                 )}
               >
                 {week}
@@ -98,21 +92,21 @@ export function FilterPanel({
 
       {/* Suppliers Filter */}
       <div className="filter-panel">
-        <div className="flex items-center gap-2 mb-3">
-          <Users className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-semibold text-xs font-heading uppercase tracking-wider text-muted-foreground">Suppliers</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm font-heading">SUPPLIERS</h3>
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
         </div>
-        <ScrollArea className="h-36">
-          <div className="space-y-1.5 pr-2">
+        <ScrollArea className="h-40">
+          <div className="space-y-1">
             {suppliers.map(supplier => (
               <button
                 key={supplier}
                 onClick={() => onToggleArrayFilter('suppliers', supplier)}
                 className={cn(
-                  'w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 truncate',
+                  'w-full text-left px-2 py-1.5 rounded text-xs transition-colors truncate',
                   filters.suppliers.includes(supplier)
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/70'
                 )}
               >
                 {supplier}
@@ -124,20 +118,20 @@ export function FilterPanel({
 
       {/* S.LINE Filter */}
       <div className="filter-panel">
-        <div className="flex items-center gap-2 mb-3">
-          <Ship className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-semibold text-xs font-heading uppercase tracking-wider text-muted-foreground">Shipping Line</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm font-heading">S.LINE</h3>
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-2 gap-1">
           {sLines.map(sLine => (
             <button
               key={sLine}
               onClick={() => onToggleArrayFilter('sLines', sLine)}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                'px-2 py-1.5 rounded text-xs transition-colors',
                 filters.sLines.includes(sLine)
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/70'
               )}
             >
               {sLine}
@@ -148,20 +142,20 @@ export function FilterPanel({
 
       {/* POL Filter */}
       <div className="filter-panel">
-        <div className="flex items-center gap-2 mb-3">
-          <MapPin className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-semibold text-xs font-heading uppercase tracking-wider text-muted-foreground">Port of Loading</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm font-heading">POL</h3>
+          <Settings2 className="w-4 h-4 text-muted-foreground" />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {pols.map(pol => (
             <button
               key={pol}
               onClick={() => onToggleArrayFilter('pols', pol)}
               className={cn(
-                'w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200',
+                'w-full text-left px-2 py-1.5 rounded text-xs transition-colors',
                 filters.pols.includes(pol)
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/70'
               )}
             >
               {pol}

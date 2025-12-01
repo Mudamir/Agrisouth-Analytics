@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react';
 import { ShippingRecord, FruitType } from '@/types/shipping';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Package, Boxes, Users, Calendar } from 'lucide-react';
 
 interface AnalysisViewProps {
   data: ShippingRecord[];
 }
 
-const COLORS = ['hsl(168, 80%, 36%)', 'hsl(24, 95%, 53%)', 'hsl(45, 93%, 47%)', 'hsl(168, 60%, 45%)', 'hsl(24, 90%, 65%)', 'hsl(220, 30%, 20%)'];
+const COLORS = ['hsl(190, 100%, 25%)', 'hsl(18, 85%, 55%)', 'hsl(45, 90%, 50%)', 'hsl(190, 60%, 35%)', 'hsl(18, 70%, 65%)', 'hsl(200, 60%, 15%)'];
 
 export function AnalysisView({ data }: AnalysisViewProps) {
   const [selectedYear, setSelectedYear] = useState<number | 'ALL'>('ALL');
@@ -68,17 +67,15 @@ export function AnalysisView({ data }: AnalysisViewProps) {
   const totalContainers = filteredData.reduce((sum, r) => sum + r.lCont, 0);
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 animate-fade-in">
+    <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="text-sm font-medium text-muted-foreground tracking-wide">Insights & Metrics</p>
-          <h1 className="page-title">Analysis</h1>
+          <h1 className="page-title">ANALYSIS</h1>
+          <p className="text-muted-foreground">Aggregate views and insights</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(v === 'ALL' ? 'ALL' : parseInt(v))}>
-            <SelectTrigger className="w-32 bg-card border-border/50">
-              <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -88,7 +85,7 @@ export function AnalysisView({ data }: AnalysisViewProps) {
           </Select>
           
           <Select value={String(selectedWeek)} onValueChange={(v) => setSelectedWeek(v === 'ALL' ? 'ALL' : parseInt(v))}>
-            <SelectTrigger className="w-32 bg-card border-border/50">
+            <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -98,110 +95,73 @@ export function AnalysisView({ data }: AnalysisViewProps) {
           </Select>
 
           <Select value={selectedItem} onValueChange={(v) => setSelectedItem(v as FruitType | 'ALL')}>
-            <SelectTrigger className="w-40 bg-card border-border/50">
+            <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Items</SelectItem>
-              <SelectItem value="BANANAS">🍌 Bananas</SelectItem>
-              <SelectItem value="PINEAPPLES">🍍 Pineapples</SelectItem>
+              <SelectItem value="BANANAS">Bananas</SelectItem>
+              <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="stat-card opacity-0 animate-fade-in" style={{ animationDelay: '0ms' }}>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Boxes className="w-4 h-4 text-primary-foreground/70" />
-              <p className="stat-card-label">Total Cartons</p>
-            </div>
-            <p className="stat-card-value">{totalCartons.toLocaleString()}</p>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="stat-card">
+          <p className="stat-card-label">Total Cartons</p>
+          <p className="stat-card-value">{totalCartons.toLocaleString()}</p>
         </div>
-        <div className="stat-card opacity-0 animate-fade-in" style={{ animationDelay: '80ms' }}>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Package className="w-4 h-4 text-primary-foreground/70" />
-              <p className="stat-card-label">Total Containers</p>
-            </div>
-            <p className="stat-card-value">{totalContainers.toLocaleString()}</p>
-          </div>
+        <div className="stat-card">
+          <p className="stat-card-label">Total Containers</p>
+          <p className="stat-card-value">{totalContainers.toLocaleString()}</p>
         </div>
-        <div className="stat-card opacity-0 animate-fade-in" style={{ animationDelay: '160ms' }}>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-primary-foreground/70" />
-              <p className="stat-card-label">Unique Packs</p>
-            </div>
-            <p className="stat-card-value">{packAnalysis.length}</p>
-          </div>
+        <div className="stat-card">
+          <p className="stat-card-label">Unique Packs</p>
+          <p className="stat-card-value">{packAnalysis.length}</p>
         </div>
-        <div className="stat-card opacity-0 animate-fade-in" style={{ animationDelay: '240ms' }}>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-primary-foreground/70" />
-              <p className="stat-card-label">Records</p>
-            </div>
-            <p className="stat-card-value">{filteredData.length.toLocaleString()}</p>
-          </div>
+        <div className="stat-card">
+          <p className="stat-card-label">Records</p>
+          <p className="stat-card-value">{filteredData.length.toLocaleString()}</p>
         </div>
       </div>
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Cartons by Pack */}
-        <div className="chart-container opacity-0 animate-fade-in" style={{ animationDelay: '100ms' }}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Boxes className="w-4 h-4 text-primary" />
-            </div>
-            <h3 className="font-heading font-semibold text-foreground">Cartons by Pack Type</h3>
-          </div>
+        <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
+          <h3 className="font-heading font-semibold text-foreground mb-4">Cartons by Pack Type</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={packAnalysis} layout="vertical" margin={{ left: 80 }}>
-              <defs>
-                <linearGradient id="packGradient" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="hsl(168, 80%, 36%)" />
-                  <stop offset="100%" stopColor="hsl(168, 80%, 28%)" />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 20%, 92%)" horizontal={true} vertical={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(220, 15%, 45%)' }} axisLine={{ stroke: 'hsl(220, 20%, 90%)' }} />
-              <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: 'hsl(220, 15%, 45%)' }} width={75} axisLine={{ stroke: 'hsl(220, 20%, 90%)' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis type="number" tick={{ fontSize: 11 }} />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={75} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(0, 0%, 100%)',
-                  border: '1px solid hsl(220, 20%, 90%)',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 40px -10px rgba(0,0,0,0.15)',
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
                 }}
                 formatter={(value: number) => [value.toLocaleString(), 'Cartons']}
               />
-              <Bar dataKey="value" fill="url(#packGradient)" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Supplier Distribution */}
-        <div className="chart-container opacity-0 animate-fade-in" style={{ animationDelay: '200ms' }}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-              <Users className="w-4 h-4 text-accent" />
-            </div>
-            <h3 className="font-heading font-semibold text-foreground">Top Suppliers</h3>
-          </div>
+        <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
+          <h3 className="font-heading font-semibold text-foreground mb-4">Top Suppliers</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
                 data={supplierAnalysis}
                 cx="50%"
                 cy="50%"
-                innerRadius={65}
-                outerRadius={105}
-                paddingAngle={3}
+                innerRadius={60}
+                outerRadius={100}
+                paddingAngle={2}
                 dataKey="value"
                 label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
                 labelLine={false}
@@ -212,10 +172,9 @@ export function AnalysisView({ data }: AnalysisViewProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(0, 0%, 100%)',
-                  border: '1px solid hsl(220, 20%, 90%)',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 40px -10px rgba(0,0,0,0.15)',
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
                 }}
                 formatter={(value: number) => [value.toLocaleString(), 'Cartons']}
               />
@@ -224,44 +183,36 @@ export function AnalysisView({ data }: AnalysisViewProps) {
         </div>
 
         {/* Weekly Trend */}
-        <div className="chart-container lg:col-span-2 opacity-0 animate-fade-in" style={{ animationDelay: '300ms' }}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-gold/20 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-gold" />
-            </div>
-            <h3 className="font-heading font-semibold text-foreground">Weekly Shipment Trend</h3>
-          </div>
+        <div className="bg-card rounded-lg p-4 shadow-sm border border-border lg:col-span-2">
+          <h3 className="font-heading font-semibold text-foreground mb-4">Weekly Shipment Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={weeklyTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 20%, 92%)" vertical={false} />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: 'hsl(220, 15%, 45%)' }} axisLine={{ stroke: 'hsl(220, 20%, 90%)' }} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(220, 15%, 45%)' }} axisLine={{ stroke: 'hsl(220, 20%, 90%)' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(0, 0%, 100%)',
-                  border: '1px solid hsl(220, 20%, 90%)',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 40px -10px rgba(0,0,0,0.15)',
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
                 }}
                 formatter={(value: number, name: string) => [value.toLocaleString(), name]}
               />
-              <Legend 
-                formatter={(value) => <span style={{ color: 'hsl(220, 30%, 20%)', fontFamily: 'Inter', fontSize: '12px' }}>{value}</span>}
-              />
+              <Legend />
               <Line 
                 type="monotone" 
                 dataKey="bananas" 
-                stroke="hsl(45, 93%, 47%)" 
-                strokeWidth={3}
-                dot={{ fill: 'hsl(45, 93%, 47%)', strokeWidth: 2 }}
+                stroke="hsl(var(--gold))" 
+                strokeWidth={2}
+                dot={{ fill: 'hsl(var(--gold))' }}
                 name="Bananas"
               />
               <Line 
                 type="monotone" 
                 dataKey="pineapples" 
-                stroke="hsl(24, 95%, 53%)" 
-                strokeWidth={3}
-                dot={{ fill: 'hsl(24, 95%, 53%)', strokeWidth: 2 }}
+                stroke="hsl(var(--accent))" 
+                strokeWidth={2}
+                dot={{ fill: 'hsl(var(--accent))' }}
                 name="Pineapples"
               />
             </LineChart>
