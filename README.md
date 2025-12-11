@@ -2,6 +2,8 @@
 
 A modern analytics dashboard for shipping and logistics data management.
 
+🚀 **Live**: [agrisouth-analytics.vercel.app](https://agrisouth-analytics.vercel.app)
+
 ## 🚀 Quick Deploy to Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-repo/agrisouth-analytics)
