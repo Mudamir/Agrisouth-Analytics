@@ -1,224 +1,347 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ShippingRecord, FruitType } from '@/types/shipping';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { SupplierCard } from './SupplierCard';
+import { StatCard } from './StatCard';
+import { Button } from '@/components/ui/button';
+import { Banana, TreePine } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 interface AnalysisViewProps {
   data: ShippingRecord[];
+  selectedFruit: FruitType;
+  onSelectFruit: (fruit: FruitType) => void;
 }
 
-const COLORS = ['hsl(190, 100%, 25%)', 'hsl(18, 85%, 55%)', 'hsl(45, 90%, 50%)', 'hsl(190, 60%, 35%)', 'hsl(18, 70%, 65%)', 'hsl(200, 60%, 15%)'];
+export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisViewProps) {
+  // Data is already filtered by FilterPanel and selectedFruit from useShippingData
+  // Calculate supplier statistics with pack breakdown
+  const supplierStats = useMemo(() => {
+    const supplierMap = new Map<string, {
+      cartons: number;
+      containers: number;
+      packs: Map<string, { cartons: number; containers: number }>;
+    }>();
 
-export function AnalysisView({ data }: AnalysisViewProps) {
-  const [selectedYear, setSelectedYear] = useState<number | 'ALL'>('ALL');
-  const [selectedItem, setSelectedItem] = useState<FruitType | 'ALL'>('ALL');
-  const [selectedWeek, setSelectedWeek] = useState<number | 'ALL'>('ALL');
+    data.forEach(r => {
+      const existing = supplierMap.get(r.supplier) || {
+        cartons: 0,
+        containers: 0,
+        packs: new Map(),
+      };
 
-  const years = useMemo(() => [...new Set(data.map(r => r.year))].sort((a, b) => b - a), [data]);
-  const weeks = useMemo(() => [...new Set(data.map(r => r.week))].sort((a, b) => a - b), [data]);
+      existing.cartons += r.cartons;
+      existing.containers += r.lCont;
 
-  const filteredData = useMemo(() => {
-    return data.filter(r => {
-      if (selectedYear !== 'ALL' && r.year !== selectedYear) return false;
-      if (selectedItem !== 'ALL' && r.item !== selectedItem) return false;
-      if (selectedWeek !== 'ALL' && r.week !== selectedWeek) return false;
-      return true;
+      const packData = existing.packs.get(r.pack) || { cartons: 0, containers: 0 };
+      packData.cartons += r.cartons;
+      packData.containers += r.lCont;
+      existing.packs.set(r.pack, packData);
+
+      supplierMap.set(r.supplier, existing);
     });
-  }, [data, selectedYear, selectedItem, selectedWeek]);
 
-  const packAnalysis = useMemo(() => {
-    const packMap = new Map<string, number>();
-    filteredData.forEach(r => {
-      packMap.set(r.pack, (packMap.get(r.pack) || 0) + r.cartons);
-    });
-    return Array.from(packMap.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredData]);
-
-  const weeklyTrend = useMemo(() => {
-    const weekMap = new Map<number, { bananas: number; pineapples: number }>();
-    filteredData.forEach(r => {
-      const current = weekMap.get(r.week) || { bananas: 0, pineapples: 0 };
-      if (r.item === 'BANANAS') {
-        current.bananas += r.cartons;
-      } else {
-        current.pineapples += r.cartons;
-      }
-      weekMap.set(r.week, current);
-    });
-    return Array.from(weekMap.entries())
-      .map(([week, data]) => ({ week: `W${week}`, ...data }))
-      .sort((a, b) => parseInt(a.week.slice(1)) - parseInt(b.week.slice(1)));
-  }, [filteredData]);
-
-  const supplierAnalysis = useMemo(() => {
-    const supplierMap = new Map<string, number>();
-    filteredData.forEach(r => {
-      supplierMap.set(r.supplier, (supplierMap.get(r.supplier) || 0) + r.cartons);
-    });
     return Array.from(supplierMap.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8);
-  }, [filteredData]);
+      .map(([supplier, data]) => ({
+        supplier,
+        cartons: data.cartons,
+        containers: parseFloat(data.containers.toFixed(2)),
+        packBreakdown: Array.from(data.packs.entries())
+          .map(([pack, stats]) => ({
+            pack,
+            cartons: stats.cartons,
+            containers: parseFloat(stats.containers.toFixed(2)),
+          }))
+          .sort((a, b) => b.cartons - a.cartons),
+      }))
+      .sort((a, b) => a.supplier.localeCompare(b.supplier));
+  }, [data]);
 
-  const totalCartons = filteredData.reduce((sum, r) => sum + r.cartons, 0);
-  const totalContainers = filteredData.reduce((sum, r) => sum + r.lCont, 0);
+
+  const totalCartons = data.reduce((sum, r) => sum + r.cartons, 0);
+  const totalContainers = data.reduce((sum, r) => sum + r.lCont, 0);
+  const uniqueSuppliers = supplierStats.length;
+  
+  // Get unique packs from supplier stats
+  const uniquePacks = useMemo(() => {
+    const packSet = new Set<string>();
+    supplierStats.forEach(stat => {
+      stat.packBreakdown.forEach(pack => packSet.add(pack.pack));
+    });
+    return packSet.size;
+  }, [supplierStats]);
+
+  // Prepare chart data for cartons and containers percentage by S.Line
+  const sLineStats = useMemo(() => {
+    const sLineMap = new Map<string, {
+      cartons: number;
+      containers: number;
+    }>();
+
+    data.forEach(r => {
+      const existing = sLineMap.get(r.sLine) || {
+        cartons: 0,
+        containers: 0,
+      };
+
+      existing.cartons += r.cartons;
+      existing.containers += r.lCont;
+
+      sLineMap.set(r.sLine, existing);
+    });
+
+    return Array.from(sLineMap.entries())
+      .map(([sLine, stats]) => ({
+        name: sLine,
+        cartons: stats.cartons,
+        containers: parseFloat(stats.containers.toFixed(2)),
+        cartonsPercent: totalCartons > 0 ? (stats.cartons / totalCartons) * 100 : 0,
+        containersPercent: totalContainers > 0 ? (stats.containers / totalContainers) * 100 : 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [data, totalCartons, totalContainers]);
+
+  // Color palette for charts
+  const COLORS = [
+    'hsl(var(--primary))',
+    'hsl(var(--accent))',
+    'hsl(var(--muted-foreground))',
+    '#8b5cf6',
+    '#ec4899',
+    '#f59e0b',
+    '#10b981',
+    '#3b82f6',
+    '#ef4444',
+    '#6366f1',
+  ];
 
   return (
     <div className="flex-1 p-6 overflow-y-auto">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="page-title">ANALYSIS</h1>
-          <p className="text-muted-foreground">Aggregate views and insights</p>
+          <h1 className="page-title mb-2">ANALYSIS</h1>
+          <p className="text-muted-foreground">Comprehensive insights and supplier breakdown</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(v === 'ALL' ? 'ALL' : parseInt(v))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Years</SelectItem>
-              {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          
-          <Select value={String(selectedWeek)} onValueChange={(v) => setSelectedWeek(v === 'ALL' ? 'ALL' : parseInt(v))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Weeks</SelectItem>
-              {weeks.map(w => <SelectItem key={w} value={String(w)}>Week {w}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedItem} onValueChange={(v) => setSelectedItem(v as FruitType | 'ALL')}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Items</SelectItem>
-              <SelectItem value="BANANAS">Bananas</SelectItem>
-              <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Fruit Selector Buttons */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={selectedFruit === 'BANANAS' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onSelectFruit('BANANAS')}
+            className={cn(
+              'flex items-center gap-2',
+              selectedFruit === 'BANANAS' 
+                ? 'bg-accent text-accent-foreground hover:bg-accent/90' 
+                : 'hover:bg-muted'
+            )}
+          >
+            <Banana className="w-4 h-4" />
+            <span>Bananas</span>
+          </Button>
+          <Button
+            variant={selectedFruit === 'PINEAPPLES' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onSelectFruit('PINEAPPLES')}
+            className={cn(
+              'flex items-center gap-2',
+              selectedFruit === 'PINEAPPLES' 
+                ? 'bg-accent text-accent-foreground hover:bg-accent/90' 
+                : 'hover:bg-muted'
+            )}
+          >
+            <TreePine className="w-4 h-4" />
+            <span>Pineapples</span>
+          </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="stat-card">
-          <p className="stat-card-label">Total Cartons</p>
-          <p className="stat-card-value">{totalCartons.toLocaleString()}</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-card-label">Total Containers</p>
-          <p className="stat-card-value">{totalContainers.toLocaleString()}</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-card-label">Unique Packs</p>
-          <p className="stat-card-value">{packAnalysis.length}</p>
-        </div>
-        <div className="stat-card">
-          <p className="stat-card-label">Records</p>
-          <p className="stat-card-value">{filteredData.length.toLocaleString()}</p>
-        </div>
+        <StatCard
+          label="Total Cartons"
+          value={totalCartons}
+          variant="large"
+          style={{ animationDelay: '0ms' } as React.CSSProperties}
+        />
+        <StatCard
+          label="Total Containers"
+          value={totalContainers}
+          variant="large"
+          style={{ animationDelay: '50ms' } as React.CSSProperties}
+        />
+        <StatCard
+          label="Suppliers"
+          value={uniqueSuppliers}
+          variant="large"
+          style={{ animationDelay: '100ms' } as React.CSSProperties}
+        />
+        <StatCard
+          label="Pack Types"
+          value={uniquePacks}
+          variant="large"
+          style={{ animationDelay: '150ms' } as React.CSSProperties}
+        />
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Cartons by Pack */}
-        <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
-          <h3 className="font-heading font-semibold text-foreground mb-4">Cartons by Pack Type</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={packAnalysis} layout="vertical" margin={{ left: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" tick={{ fontSize: 11 }} />
-              <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={75} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number) => [value.toLocaleString(), 'Cartons']}
-              />
-              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Distribution Charts */}
+      <section className="mb-8">
+        <h2 className="text-lg font-heading font-semibold text-foreground mb-6">
+          Distribution by S.Line
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Cartons Distribution Pie Chart */}
+          <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                Cartons Distribution
+              </h3>
+              <span className="text-xs text-muted-foreground font-medium">
+                {totalCartons.toLocaleString()} total
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={350}>
+              <PieChart>
+                <Pie
+                  data={sLineStats}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={true}
+                  label={({ name, cartonsPercent }) => 
+                    cartonsPercent > 3 ? `${name}\n${cartonsPercent.toFixed(1)}%` : ''
+                  }
+                  outerRadius={120}
+                  fill="#8884d8"
+                  dataKey="cartons"
+                  stroke="hsl(var(--background))"
+                  strokeWidth={2}
+                >
+                  {sLineStats.map((entry, index) => (
+                    <Cell key={`cell-cartons-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  }}
+                  formatter={(value: number, name: string, props: any) => [
+                    `${value.toLocaleString()} cartons (${props.payload.cartonsPercent.toFixed(1)}%)`,
+                    props.payload.name,
+                  ]}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={60}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                  formatter={(value, entry: any) => (
+                    <span className="text-xs">
+                      <span className="font-semibold">{value}</span>
+                      <span className="text-muted-foreground ml-1">
+                        {entry.payload.cartonsPercent.toFixed(1)}%
+                      </span>
+                    </span>
+                  )}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-        {/* Supplier Distribution */}
-        <div className="bg-card rounded-lg p-4 shadow-sm border border-border">
-          <h3 className="font-heading font-semibold text-foreground mb-4">Top Suppliers</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={supplierAnalysis}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={2}
-                dataKey="value"
-                label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
-                labelLine={false}
-              >
-                {supplierAnalysis.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number) => [value.toLocaleString(), 'Cartons']}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {/* Containers Distribution Pie Chart */}
+          <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                Containers Distribution
+              </h3>
+              <span className="text-xs text-muted-foreground font-medium">
+                {totalContainers.toFixed(2)} total
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={350}>
+              <PieChart>
+                <Pie
+                  data={sLineStats}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={true}
+                  label={({ name, containersPercent }) => 
+                    containersPercent > 3 ? `${name}\n${containersPercent.toFixed(1)}%` : ''
+                  }
+                  outerRadius={120}
+                  fill="#8884d8"
+                  dataKey="containers"
+                  stroke="hsl(var(--background))"
+                  strokeWidth={2}
+                >
+                  {sLineStats.map((entry, index) => (
+                    <Cell key={`cell-containers-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  }}
+                  formatter={(value: number, name: string, props: any) => [
+                    `${value.toFixed(2)} containers (${props.payload.containersPercent.toFixed(1)}%)`,
+                    props.payload.name,
+                  ]}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={60}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                  formatter={(value, entry: any) => (
+                    <span className="text-xs">
+                      <span className="font-semibold">{value}</span>
+                      <span className="text-muted-foreground ml-1">
+                        {entry.payload.containersPercent.toFixed(1)}%
+                      </span>
+                    </span>
+                  )}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+      </section>
 
-        {/* Weekly Trend */}
-        <div className="bg-card rounded-lg p-4 shadow-sm border border-border lg:col-span-2">
-          <h3 className="font-heading font-semibold text-foreground mb-4">Weekly Shipment Trend</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={weeklyTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number, name: string) => [value.toLocaleString(), name]}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="bananas" 
-                stroke="hsl(var(--gold))" 
-                strokeWidth={2}
-                dot={{ fill: 'hsl(var(--gold))' }}
-                name="Bananas"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="pineapples" 
-                stroke="hsl(var(--accent))" 
-                strokeWidth={2}
-                dot={{ fill: 'hsl(var(--accent))' }}
-                name="Pineapples"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* Supplier Cards Grid */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-semibold text-foreground">
+            Supplier Performance
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {supplierStats.length} {supplierStats.length === 1 ? 'supplier' : 'suppliers'}
+          </p>
         </div>
-      </div>
+        {supplierStats.length === 0 ? (
+          <div className="bg-card border border-border rounded-lg p-12 text-center">
+            <p className="text-muted-foreground">No supplier data available for the selected filters</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {supplierStats.map((stat, index) => (
+              <SupplierCard
+                key={stat.supplier}
+                supplier={stat.supplier}
+                cartons={stat.cartons}
+                containers={stat.containers}
+                packBreakdown={stat.packBreakdown}
+                style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
     </div>
   );
 }

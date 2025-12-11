@@ -17,7 +17,12 @@ export function StatCard({ label, value, className, variant = 'default', style }
         'stat-card-value',
         variant === 'large' && 'text-3xl md:text-4xl'
       )}>
-        {typeof value === 'number' ? value.toLocaleString() : value}
+        {typeof value === 'number' 
+          ? value.toLocaleString('en-US', {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })
+          : value}
       </p>
     </div>
   );

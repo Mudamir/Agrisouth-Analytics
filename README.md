@@ -1,73 +1,133 @@
-# Welcome to your Lovable project
+# Agrisouth Analytics
 
-## Project info
+A modern analytics dashboard for shipping and logistics data management.
 
-**URL**: https://lovable.dev/projects/d5c96deb-d414-4e21-afc5-6f23c8888ca8
+## 🚀 Quick Deploy to Vercel
 
-## How can I edit this code?
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-repo/agrisouth-analytics)
 
-There are several ways of editing your application.
+### Prerequisites
+- Vercel account (free tier is perfect for 10-15 users)
+- Supabase project with database set up
 
-**Use Lovable**
+### Deployment Steps
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d5c96deb-d414-4e21-afc5-6f23c8888ca8) and start prompting.
+1. **Clone and Push to Git**
+   ```bash
+   git clone <your-repo>
+   cd agrisouth-analytics
+   git push origin main
+   ```
 
-Changes made via Lovable will be committed automatically to this repo.
+2. **Deploy to Vercel**
+   - Go to [vercel.com/new](https://vercel.com/new)
+   - Import your repository
+   - Add environment variables:
+     - `VITE_SUPABASE_URL`
+     - `VITE_SUPABASE_ANON_KEY`
+   - Click Deploy
 
-**Use your preferred IDE**
+3. **Configure Supabase**
+   - Add Vercel domain to Supabase CORS settings
+   - Run database migrations (see `create-permissions-system.sql`)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+**Full deployment guide**: See [VERCEL-DEPLOYMENT.md](./VERCEL-DEPLOYMENT.md)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 📋 Features
 
-Follow these steps:
+- 📊 **Dashboard**: Real-time analytics and visualizations
+- 📦 **Data Management**: Add, edit, and delete shipping records
+- 🔐 **Role-Based Access Control**: Flexible permission system
+- 👥 **User Management**: Manage users and permissions
+- 📈 **Analytics**: Comprehensive data analysis
+- 💰 **PNL Tracking**: Profit and loss calculations
+- ⚙️ **Configuration**: Customizable settings
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🛠️ Tech Stack
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI**: Tailwind CSS + Shadcn/ui
+- **Backend**: Supabase (PostgreSQL + Auth + RLS)
+- **State Management**: React Query (TanStack Query)
+- **Charts**: Recharts
+- **Deployment**: Vercel
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 📦 Installation
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+
+# Run development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-**Edit a file directly in GitHub**
+## 🔐 Security
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Row Level Security (RLS) on all database tables
+- Environment variables for sensitive data
+- Input validation and sanitization
+- Error boundaries for graceful error handling
+- Production builds remove console.logs automatically
 
-**Use GitHub Codespaces**
+See [SECURITY.md](./SECURITY.md) for detailed security guidelines.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📚 Documentation
 
-## What technologies are used for this project?
+- [VERCEL-DEPLOYMENT.md](./VERCEL-DEPLOYMENT.md) - Vercel deployment guide
+- [SECURITY.md](./SECURITY.md) - Security best practices
+- [DEPLOYMENT-CHECKLIST.md](./DEPLOYMENT-CHECKLIST.md) - Pre-deployment checklist
+- [CLEANUP-SUMMARY.md](./CLEANUP-SUMMARY.md) - Codebase cleanup summary
 
-This project is built with:
+## 🧪 Development
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```bash
+# Run linter
+npm run lint
 
-## How can I deploy this project?
+# Check for console.logs
+npm run check:console
 
-Simply open [Lovable](https://lovable.dev/projects/d5c96deb-d414-4e21-afc5-6f23c8888ca8) and click on Share -> Publish.
+# Type checking (via IDE or tsc)
+# No separate script needed - TypeScript is configured
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 📝 Environment Variables
 
-Yes, you can!
+Required environment variables:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🎯 Optimized for Small Teams
+
+This application is optimized for **10-15 users**:
+- Simple, efficient architecture
+- No complex caching needed
+- Direct database queries
+- Fast page loads
+- Minimal infrastructure costs (free tier on Vercel + Supabase)
+
+## 📄 License
+
+Proprietary - Agrisouth Software
+
+## 🤝 Support
+
+For issues or questions, contact the development team.
+
+---
+
+**Built with ❤️ for Agrisouth**

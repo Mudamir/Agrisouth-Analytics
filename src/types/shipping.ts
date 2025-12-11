@@ -15,6 +15,7 @@ export interface ShippingRecord {
   lCont: number;
   cartons: number;
   price: number;
+  type: 'CONTRACT' | 'SPOT';
 }
 
 export interface FilterState {
@@ -23,6 +24,7 @@ export interface FilterState {
   suppliers: string[];
   sLines: string[];
   pols: string[];
+  destinations: string[];
 }
 
 export interface PackStats {

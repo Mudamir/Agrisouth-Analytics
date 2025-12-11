@@ -1,15 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { FilterPanel } from '@/components/dashboard/FilterPanel';
 import { DashboardView } from '@/components/dashboard/DashboardView';
 import { DataView } from '@/components/dashboard/DataView';
 import { AnalysisView } from '@/components/dashboard/AnalysisView';
+import { PNLView } from '@/components/dashboard/PNLView';
+import { UserManagement } from '@/components/admin/UserManagement';
+import { ConfigurationManagement } from '@/components/admin/ConfigurationManagement';
+import { DataLogs } from '@/components/admin/DataLogs';
 import { useShippingData } from '@/hooks/useShippingData';
+import { useAuth } from '@/contexts/AuthContext';
 
-type Page = 'dashboard' | 'analysis' | 'data';
+type Page = 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs';
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const { canAccessPage, userPermissions } = useAuth();
+
+  // Redirect if user tries to access a page they don't have permission for
+  // Also re-check when permissions change
+  useEffect(() => {
+    if (!canAccessPage(currentPage)) {
+      // Redirect to dashboard if they don't have access
+      setCurrentPage('dashboard');
+    }
+  }, [currentPage, canAccessPage, userPermissions]); // Added userPermissions to dependencies
   
   const {
     data,
@@ -25,6 +40,7 @@ const Index = () => {
     suppliers,
     sLines,
     pols,
+    destinations,
     packStats,
     totalStats,
     supplierStats,
@@ -51,11 +67,17 @@ const Index = () => {
           packStats={packStats}
           totalStats={totalStats}
           supplierStats={supplierStats}
+          data={data || []}
+          filteredData={filteredData || []}
         />
       )}
 
       {currentPage === 'analysis' && (
-        <AnalysisView data={data} />
+        <AnalysisView 
+          data={filteredData || []}
+          selectedFruit={selectedFruit}
+          onSelectFruit={setSelectedFruit}
+        />
       )}
 
       {currentPage === 'data' && (
@@ -66,8 +88,34 @@ const Index = () => {
         />
       )}
 
-      {/* Right Filter Panel - only on dashboard */}
-      {currentPage === 'dashboard' && (
+      {currentPage === 'pnl' && canAccessPage('pnl') && (
+        <PNLView 
+          data={data || []} 
+          selectedFruit={selectedFruit}
+          onSelectFruit={setSelectedFruit}
+        />
+      )}
+
+      {currentPage === 'users' && canAccessPage('users') && (
+        <div className="flex-1 overflow-auto">
+          <UserManagement />
+        </div>
+      )}
+
+      {currentPage === 'data-logs' && canAccessPage('data-logs') && (
+        <div className="flex-1 overflow-auto">
+          <DataLogs />
+        </div>
+      )}
+
+      {currentPage === 'configuration' && canAccessPage('configuration') && (
+        <div className="flex-1 overflow-auto">
+          <ConfigurationManagement />
+        </div>
+      )}
+
+      {/* Right Filter Panel - on dashboard and analysis */}
+      {(currentPage === 'dashboard' || currentPage === 'analysis') && (
         <FilterPanel
           filters={filters}
           years={years}
@@ -75,6 +123,7 @@ const Index = () => {
           suppliers={suppliers}
           sLines={sLines}
           pols={pols}
+          destinations={destinations}
           onUpdateFilter={updateFilter}
           onToggleArrayFilter={toggleArrayFilter}
           onClearFilters={clearFilters}
