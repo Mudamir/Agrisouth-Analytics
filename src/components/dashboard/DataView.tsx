@@ -465,52 +465,6 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     const formattedDate = format(newRecord.etdDate, 'MM/dd/yyyy');
     const normalizedContainer = newRecord.container.trim().toUpperCase();
 
-    // Check for duplicates before adding (Container + ETD must be unique)
-    let duplicates = checkForDuplicates(normalizedContainer, formattedDate);
-    
-    // Also check directly in database for more reliable results
-    if (supabase && duplicates.length === 0) {
-      try {
-        const { data: dbDuplicates, error } = await supabase
-          .from('shipping_records')
-          .select('*')
-          .eq('container', normalizedContainer)
-          .eq('etd', formattedDate);
-
-        if (!error && dbDuplicates && dbDuplicates.length > 0) {
-          console.log('⚠️ Found duplicates in database:', dbDuplicates);
-          const duplicateRecords: ShippingRecord[] = dbDuplicates.map((db: DatabaseShippingRecord) => ({
-            id: db.id,
-            year: db.year,
-            week: db.week,
-            etd: db.etd,
-            pol: db.pol,
-            item: db.item as FruitType,
-            destination: db.destination,
-            supplier: db.supplier,
-            sLine: db.s_line,
-            container: db.container,
-            pack: db.pack,
-            lCont: Number(db.l_cont),
-            cartons: db.cartons,
-            price: Number(db.price),
-            type: (db.type || 'SPOT') as 'CONTRACT' | 'SPOT',
-          }));
-          duplicates = duplicateRecords;
-        }
-      } catch (err) {
-        console.error('Error checking database for duplicates:', err);
-      }
-    }
-    
-    if (duplicates.length > 0) {
-      // Show duplicate warning dialog - prevent adding if duplicate exists
-      setDuplicateRecords(duplicates);
-      setIsAddingRecord(true);
-      setDuplicateDialogOpen(true);
-      return;
-    }
-
     if (containerMode) {
       // Container mode: validate and add all pack entries
       if (!containerTotalCartons || containerTotalCartons === 0) {
@@ -528,14 +482,8 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
         return;
       }
 
-      // Check for duplicates before adding all pack entries
-      // For container mode, we check once for the container (all packs share same container/ETD)
-      // Note: This check was already done above, but keeping it here as a safety check
-      if (duplicates.length > 0) {
-        setDuplicateRecords(duplicates);
-        setDuplicateDialogOpen(true);
-        return;
-      }
+      // Note: Duplicate check is done when locking container (handleLockContainerInfo)
+      // No need to check again here since container must be locked before adding
 
       // Add all pack entries as separate records
       packEntries.forEach((entry) => {

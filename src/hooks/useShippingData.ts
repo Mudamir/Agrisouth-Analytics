@@ -278,24 +278,9 @@ export function useShippingData() {
         throw new Error('Supabase not configured');
       }
 
-      // Check for duplicate records (same Container and ETD - unique constraint)
-      const { data: existingRecords, error: checkError } = await supabase
-        .from('shipping_records')
-        .select('id, container, etd, pol, pack, supplier')
-        .eq('container', record.container.trim().toUpperCase())
-        .eq('etd', record.etd);
-
-      if (checkError) {
-        logger.safeError('Error checking for duplicates', checkError);
-        // Continue with insert if check fails (don't block)
-        throw new Error('Failed to check for duplicates.');
-      } else if (existingRecords && existingRecords.length > 0) {
-        // Duplicate found - throw error with details
-        const duplicateInfo = existingRecords.map(r => 
-          `Container: ${r.container}, ETD: ${r.etd}, POL: ${r.pol}, Pack: ${r.pack || 'N/A'}`
-        ).join('; ');
-        throw new Error(`DUPLICATE_RECORD: A record with the same Container (${record.container}) and ETD (${record.etd}) already exists. Each Container number and ETD combination must be unique. Existing records: ${duplicateInfo}`);
-      }
+      // Note: Duplicate verification is handled at the UI level for container mode (when locking)
+      // Regular add mode allows duplicates - no backend check needed
+      // Database constraints will handle any actual unique constraint violations if needed
 
       // Insert into shipping_records
       const { data, error } = await supabase
@@ -330,15 +315,13 @@ export function useShippingData() {
       queryClient.invalidateQueries({ queryKey: ['shipping-records'] });
     },
     onError: (error: Error) => {
-      // Handle duplicate record error
-      if (error.message.includes('DUPLICATE_RECORD')) {
-        const duplicateInfo = error.message.replace('DUPLICATE_RECORD: ', '');
-        logger.warn('Duplicate record detected:', duplicateInfo);
-        // Show error toast - the component's duplicate dialog should have already caught this,
-        // but this is a backup in case the frontend check missed it
-        toast.error('Duplicate record: A record with the same Container number and ETD already exists.');
+      // Handle database errors (including unique constraint violations if database has them)
+      logger.safeError('Error adding record', error);
+      
+      // Check if it's a unique constraint violation from database
+      if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+        toast.error('A record with this Container and ETD combination already exists in the database.');
       } else {
-        logger.safeError('Error adding record', error);
         toast.error('Failed to add record. Please try again.');
       }
     },
@@ -404,7 +387,13 @@ export function useShippingData() {
         throw new Error(deleteError.message || 'Failed to delete record from database');
       }
 
-      logger.info('Delete successful. Deleted record:', data.id);
+      // data is an array from Supabase delete().select()
+      const deletedRecord = data && data.length > 0 ? data[0] : null;
+      if (deletedRecord) {
+        logger.info('Delete successful. Deleted record:', deletedRecord.id);
+      } else {
+        logger.info('Delete successful. Deleted record:', id);
+      }
       
       // If no error, deletion succeeded
       return { id, deleted: true };
