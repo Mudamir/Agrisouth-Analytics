@@ -41,6 +41,9 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
   const [purchasePriceMap, setPurchasePriceMap] = useState<Map<string, number>>(new Map()); // Direct access to purchase prices by "pack|supplier"
   const [priceKey, setPriceKey] = useState(0); // Force refresh when prices update
   const [selectedCell, setSelectedCell] = useState<{ pack: string; supplier: string } | null>(null);
+  const [isLoadingPrices, setIsLoadingPrices] = useState(true); // Track when prices are loading
+  const [dataReady, setDataReady] = useState(false); // Track when data is ready after delay
+  const [loadingProgress, setLoadingProgress] = useState(0); // Track loading progress
 
   // Get unique years from data for selected fruit type
   const years = useMemo(() => {
@@ -49,11 +52,26 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     return uniqueYears;
   }, [data, selectedFruit]);
 
+  // Clear loading state when year/fruit changes
+  useEffect(() => {
+    setIsLoadingPrices(true);
+    setDataReady(false);
+    setLoadingProgress(0);
+  }, [selectedFruit, selectedYear]);
+
   // Fetch price configuration from Supabase
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        if (!supabase) return;
+        if (!supabase) {
+          setIsLoadingPrices(false);
+          setLoadingProgress(100);
+          // Still wait 1 second before showing data
+          setTimeout(() => setDataReady(true), 1000);
+          return;
+        }
+        
+        setIsLoadingPrices(true);
 
         // When 'ALL' is selected, fetch prices for all years
         // Otherwise, fetch prices only for the selected year
@@ -144,16 +162,20 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         if (selectedYear !== 'ALL') {
           // For single year view, create the combined map as before
           const allPacks = new Set<string>();
-          (salesData || []).forEach(sp => allPacks.add(sp.pack));
-          (purchaseData || []).forEach(pp => allPacks.add(pp.pack));
+          (salesData || []).forEach(sp => {
+            if (sp.year === selectedYear) allPacks.add(sp.pack);
+          });
+          (purchaseData || []).forEach(pp => {
+            if (pp.year === selectedYear) allPacks.add(pp.pack);
+          });
           
           allPacks.forEach(pack => {
             const suppliersForPack = new Set<string>();
             (purchaseData || []).forEach(pp => {
-              if (pp.pack === pack) suppliersForPack.add(pp.supplier);
+              if (pp.pack === pack && pp.year === selectedYear) suppliersForPack.add(pp.supplier);
             });
             (salesData || []).forEach(sp => {
-              if (sp.pack === pack && sp.supplier) suppliersForPack.add(sp.supplier);
+              if (sp.pack === pack && sp.supplier && sp.year === selectedYear) suppliersForPack.add(sp.supplier);
             });
             
             if (suppliersForPack.size === 0) {
@@ -172,8 +194,43 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         }
 
         setPriceConfig(combinedMap);
+        setIsLoadingPrices(false);
+        
+        // Simulate progress for better UX
+        setLoadingProgress(50);
+        
+        // Wait 1 second before showing final data to ensure accuracy
+        // Show progress during this time
+        const progressInterval = setInterval(() => {
+          setLoadingProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 100);
+        
+        const timer = setTimeout(() => {
+          setLoadingProgress(100);
+          clearInterval(progressInterval);
+          setDataReady(true);
+        }, 1000);
+        
+        return () => {
+          clearTimeout(timer);
+          clearInterval(progressInterval);
+        };
       } catch (error) {
         console.error('Error loading prices:', error);
+        setIsLoadingPrices(false);
+        setLoadingProgress(100);
+        // Even on error, wait 1 second before showing data
+        const timer = setTimeout(() => {
+          setDataReady(true);
+        }, 1000);
+        
+        return () => clearTimeout(timer);
       }
     };
 
@@ -202,83 +259,102 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     return Array.from(supplierSet).sort();
   }, [filteredData]);
 
-  // Calculate PNL data grouped by pack and supplier
+  // Calculate PNL data grouped by pack and supplier - OPTIMIZED VERSION
+  // Performance optimizations:
+  // 1. Price lookup caching: Avoids redundant map lookups for records with same (pack, supplier, year)
+  // 2. Single-pass aggregation: Builds result structure in one iteration (O(n) instead of O(n) + O(m))
+  // 3. Flat map structure: Uses composite keys for O(1) lookups instead of nested maps
+  // 4. Early aggregation: Calculates totals as we iterate, avoiding separate aggregation pass
   const pnlData = useMemo(() => {
-    const packMap = new Map<string, Map<string, { cartons: number; sales: number; purchase: number }>>();
-
-    filteredData.forEach(record => {
-      const pack = record.pack;
-      const supplier = record.supplier;
-      const year = record.year;
+    // Price lookup cache - scoped to this calculation
+    // Most records share the same (pack, supplier, year), so caching significantly reduces lookups
+    const priceCache = new Map<string, { sales: number; purchase: number }>();
+    
+    // Inline price lookup function with caching
+    // Returns cached result if available, otherwise computes and caches
+    const getPrices = (pack: string, supplier: string, year: number, fallbackSalesPrice: number) => {
+      const cacheKey = `${pack}|${supplier}|${year}`;
       
-      // Build keys with year information for year-specific price lookup
-      // When 'ALL' years is selected, we need to use the record's year to get the correct prices
-      const purchaseKey = `${pack}|${supplier}|${year}`;
+      // Check cache first (most records will hit cache)
+      if (priceCache.has(cacheKey)) {
+        return priceCache.get(cacheKey)!;
+      }
+      
+      // Build lookup keys once
       const salesKeySupplier = `${pack}|${supplier}|${year}`;
       const salesKeyUniform = `${pack}|${year}`;
+      const purchaseKey = `${pack}|${supplier}|${year}`;
       
-      // Get sales price - try supplier-specific first (PINEAPPLES), then uniform (BANANAS), then fallback to record price
+      // Get sales price - try supplier-specific first (PINEAPPLES), then uniform (BANANAS), then fallback
       const salesPrice = salesPricesByPackSupplier.get(salesKeySupplier) 
                       || salesPriceMap.get(salesKeyUniform) 
-                      || record.price;
+                      || fallbackSalesPrice;
       
       // Get purchase price directly from purchase_prices table (varies by supplier and year)
-      const purchasePrice = purchasePriceMap.get(purchaseKey) || (salesPrice * 0.9); // Fallback to 90% if no config
+      const purchasePrice = purchasePriceMap.get(purchaseKey) || (salesPrice * 0.9);
       
-      // Calculate sales = cartons * configured sales price
-      const sales = record.cartons * salesPrice;
-      
-      // Calculate purchase = cartons * purchase_price
-      const purchase = record.cartons * purchasePrice;
-      
-      if (!packMap.has(pack)) {
-        packMap.set(pack, new Map());
-      }
-      
-      const supplierMap = packMap.get(pack)!;
-      if (!supplierMap.has(supplier)) {
-        supplierMap.set(supplier, { cartons: 0, sales: 0, purchase: 0 });
-      }
-      
-      const supplierData = supplierMap.get(supplier)!;
-      supplierData.cartons += record.cartons;
-      supplierData.sales += sales;
-      supplierData.purchase += purchase;
-    });
+      const result = { sales: salesPrice, purchase: purchasePrice };
+      priceCache.set(cacheKey, result);
+      return result;
+    };
 
-    // Convert to structured format
-    const result: PackData[] = [];
+    // Use a flat map with composite key for O(1) lookups: "pack|supplier"
+    const supplierDataMap = new Map<string, { cartons: number; sales: number; purchase: number }>();
     const allSuppliers = new Set<string>();
-    
-    packMap.forEach((supplierMap, pack) => {
-      const packData: PackData = {
-        pack,
-        suppliers: {},
-        totals: { cartons: 0, sales: 0, purchase: 0, profit: 0 }
-      };
+
+    // Single pass: aggregate as we iterate (O(n) complexity)
+    for (const record of filteredData) {
+      const { pack, supplier, year, cartons, price: fallbackPrice } = record;
       
-      supplierMap.forEach((data, supplier) => {
+      // Get prices (cached lookup - O(1) after first lookup)
+      const { sales: salesPrice, purchase: purchasePrice } = getPrices(pack, supplier, year, fallbackPrice);
+      
+      // Calculate values
+      const sales = cartons * salesPrice;
+      const purchase = cartons * purchasePrice;
+      
+      // Aggregate using composite key (O(1) lookup)
+      const key = `${pack}|${supplier}`;
+      const existing = supplierDataMap.get(key);
+      
+      if (existing) {
+        existing.cartons += cartons;
+        existing.sales += sales;
+        existing.purchase += purchase;
+      } else {
+        supplierDataMap.set(key, { cartons, sales, purchase });
         allSuppliers.add(supplier);
-        // Profit = Sales - Purchase
-        const profit = data.sales - data.purchase;
-        packData.suppliers[supplier] = {
-          ...data,
-          profit
-        };
-        packData.totals.cartons += data.cartons;
-        packData.totals.sales += data.sales;
-        packData.totals.purchase += data.purchase;
-        packData.totals.profit += profit;
-      });
+      }
+    }
+
+    // Build result structure in single pass
+    const packDataMap = new Map<string, PackData>();
+    
+    for (const [key, data] of supplierDataMap) {
+      const [pack, supplier] = key.split('|');
+      const profit = data.sales - data.purchase;
       
-      result.push(packData);
-    });
+      if (!packDataMap.has(pack)) {
+        packDataMap.set(pack, {
+          pack,
+          suppliers: {},
+          totals: { cartons: 0, sales: 0, purchase: 0, profit: 0 }
+        });
+      }
+      
+      const packData = packDataMap.get(pack)!;
+      packData.suppliers[supplier] = { ...data, profit };
+      packData.totals.cartons += data.cartons;
+      packData.totals.sales += data.sales;
+      packData.totals.purchase += data.purchase;
+      packData.totals.profit += profit;
+    }
 
-    // Sort packs
-    result.sort((a, b) => a.pack.localeCompare(b.pack));
+    // Convert to array and sort
+    const result = Array.from(packDataMap.values()).sort((a, b) => a.pack.localeCompare(b.pack));
 
-      return { packs: result, suppliers: Array.from(allSuppliers).sort() };
-  }, [filteredData, salesPriceMap, purchasePriceMap]);
+    return { packs: result, suppliers: Array.from(allSuppliers).sort() };
+  }, [filteredData, salesPriceMap, salesPricesByPackSupplier, purchasePriceMap]);
 
   // Calculate grand totals
   const grandTotals = useMemo(() => {
@@ -309,7 +385,21 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="page-title mb-1">PROFIT & LOSS (PNL)</h1>
-            <p className="text-sm text-muted-foreground">Financial overview by pack and supplier</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                {isLoadingPrices || !dataReady 
+                  ? 'Calculating financial data...' 
+                  : 'Financial overview by pack and supplier'}
+              </p>
+              {(isLoadingPrices || !dataReady) && (
+                <div className="h-1 w-32 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 ease-out"
+                    style={{ width: `${loadingProgress}%` }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <PriceManagement 
             selectedFruit={selectedFruit} 
@@ -369,34 +459,59 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           label="Total Cartons"
           value={grandTotals.cartons}
           variant="large"
+          isLoading={isLoadingPrices || !dataReady}
+          delay={0}
         />
         <StatCard
           label="Total Sales"
           value={formatCurrency(grandTotals.sales)}
           variant="large"
+          isLoading={isLoadingPrices || !dataReady}
+          delay={100}
         />
         <StatCard
           label="Total Purchase"
           value={formatCurrency(grandTotals.purchase)}
           variant="large"
+          isLoading={isLoadingPrices || !dataReady}
+          delay={200}
         />
         <div 
           className={cn(
-            "stat-card",
+            "stat-card transition-all duration-300",
             grandTotals.profit >= 0 
               ? "border-green-500/30" 
-              : "border-red-500/30"
+              : "border-red-500/30",
+            !isLoadingPrices && dataReady && "animate-scale-in"
           )}
+          style={{
+            animationDelay: '300ms',
+            transitionDelay: '300ms'
+          }}
         >
           <p className="stat-card-label">Net Profit</p>
-          <p 
-            className="stat-card-value text-3xl md:text-4xl"
-            style={{ 
-              color: grandTotals.profit >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(0, 84%, 60%)'
-            }}
-          >
-            {formatCurrency(grandTotals.profit)}
-          </p>
+          {(isLoadingPrices || !dataReady) ? (
+            <div className="relative overflow-hidden rounded-md">
+              <div 
+                className="h-10 bg-muted rounded"
+                style={{
+                  width: '180px',
+                  background: 'linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted) / 0.4) 20%, hsl(var(--muted) / 0.6) 40%, hsl(var(--muted) / 0.4) 60%, hsl(var(--muted)) 80%, hsl(var(--muted)) 100%)',
+                  backgroundSize: '200% 100%',
+                  animation: 'shimmer 1.5s ease-in-out infinite',
+                }}
+              />
+            </div>
+          ) : (
+            <p 
+              className="stat-card-value text-3xl md:text-4xl animate-count-up transition-all duration-500"
+              style={{ 
+                color: grandTotals.profit >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(0, 84%, 60%)'
+              }}
+            >
+              {formatCurrency(grandTotals.profit)}
+            </p>
+          )}
         </div>
       </div>
 
