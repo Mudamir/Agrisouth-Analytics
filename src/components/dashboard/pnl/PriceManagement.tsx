@@ -394,9 +394,11 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         purchaseError = err;
       }
 
-      // If error about year column, fetch without year
+      // If error about year column, fetch without year (fallback for old schema)
+      // Note: This fallback should only be used if year column doesn't exist in schema
+      // In normal operation, prices are strictly isolated by item AND year
       if (purchaseError && (purchaseError.code === 'PGRST116' || purchaseError.message?.includes('year') || purchaseError.message?.includes('column'))) {
-        console.warn('Year column issue, fetching without year filter');
+        console.warn('Year column issue, fetching without year filter (fallback mode)');
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('purchase_prices')
           .select('id, item, pack, supplier, purchase_price, updated_at')
@@ -713,11 +715,14 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
       let successCount = 0;
       let errorCount = 0;
 
+      // Ensure fruit is uppercase
+      const normalizedFruit = filterFruit.toUpperCase() as FruitType;
+
       // Update each supplier individually
       for (const supplier of suppliers) {
         try {
           const priceData = {
-            item: filterFruit,
+            item: normalizedFruit,
             pack: editingBulkPurchasePrice.pack,
             supplier,
             purchase_price: editingBulkPurchasePrice.price,
@@ -773,14 +778,26 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
 
   const getSalesPrice = (pack: string, supplier?: string) => {
     // Always use supplier-specific pricing for both fruits
+    // Strictly filter by year to ensure isolation
     if (supplier) {
-      return salesPrices.find(p => p.pack === pack && p.supplier === supplier && (!p.year || p.year === filterYear));
+      return salesPrices.find(p => 
+        p.pack === pack && 
+        p.supplier === supplier && 
+        p.item === filterFruit.toUpperCase() &&
+        p.year === filterYear
+      );
     }
     return undefined;
   };
 
   const getPurchasePrice = (pack: string, supplier: string) => {
-    return purchasePrices.find(p => p.pack === pack && p.supplier === supplier && (!p.year || p.year === filterYear));
+    // Strictly filter by year and fruit to ensure isolation
+    return purchasePrices.find(p => 
+      p.pack === pack && 
+      p.supplier === supplier && 
+      p.item === filterFruit.toUpperCase() &&
+      p.year === filterYear
+    );
   };
 
   return (

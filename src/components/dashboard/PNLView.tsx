@@ -42,31 +42,76 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
   const [priceKey, setPriceKey] = useState(0); // Force refresh when prices update
   const [selectedCell, setSelectedCell] = useState<{ pack: string; supplier: string } | null>(null);
 
+  // Get unique years from data for selected fruit type
+  const years = useMemo(() => {
+    const fruitData = data.filter(r => r.item === selectedFruit);
+    const uniqueYears = Array.from(new Set(fruitData.map(r => r.year))).sort((a, b) => b - a);
+    return uniqueYears;
+  }, [data, selectedFruit]);
+
   // Fetch price configuration from Supabase
   useEffect(() => {
     const fetchPrices = async () => {
       try {
         if (!supabase) return;
 
-        // Fetch sales prices (same for all suppliers)
-        const { data: salesData, error: salesError } = await supabase
+        // Determine which year to use for price filtering
+        // If selectedYear is 'ALL', we need to get prices for the most recent year in the data
+        // Otherwise, use the selectedYear
+        let priceYear: number | null = null;
+        if (selectedYear !== 'ALL') {
+          priceYear = selectedYear;
+        } else {
+          // Get unique years from data for this fruit
+          const fruitData = data.filter(r => r.item === selectedFruit);
+          const uniqueYears = Array.from(new Set(fruitData.map(r => r.year))).sort((a, b) => b - a);
+          if (uniqueYears.length > 0) {
+            // Use the most recent year when 'ALL' is selected
+            priceYear = uniqueYears[0];
+          }
+        }
+
+        // Build sales prices query - filter by item and year
+        let salesQuery = supabase
           .from('sales_prices')
           .select('*')
           .eq('item', selectedFruit);
+        
+        if (priceYear !== null) {
+          salesQuery = salesQuery.eq('year', priceYear);
+        }
+
+        const { data: salesData, error: salesError } = await salesQuery;
 
         if (salesError) {
           console.error('Error fetching sales prices:', salesError);
         }
 
-        // Fetch purchase prices (varies by supplier)
-        const { data: purchaseData, error: purchaseError } = await supabase
+        // Build purchase prices query - filter by item and year
+        let purchaseQuery = supabase
           .from('purchase_prices')
           .select('*')
           .eq('item', selectedFruit);
+        
+        if (priceYear !== null) {
+          purchaseQuery = purchaseQuery.eq('year', priceYear);
+        }
+
+        const { data: purchaseData, error: purchaseError } = await purchaseQuery;
 
         if (purchaseError) {
           console.error('Error fetching purchase prices:', purchaseError);
         }
+
+        // Filter prices to only include those matching the selected year
+        // This ensures we only use prices for the year being displayed
+        const filteredSalesData = priceYear !== null 
+          ? salesData?.filter(sp => sp.year === priceYear) || []
+          : salesData || [];
+        
+        const filteredPurchaseData = priceYear !== null
+          ? purchaseData?.filter(pp => pp.year === priceYear) || []
+          : purchaseData || [];
 
         // Create maps for quick lookup
         // Sales prices: Handle both models
@@ -75,22 +120,28 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         const newSalesPriceMap = new Map<string, number>();
         const salesPricesByPackSupplier = new Map<string, number>();
         
-        salesData?.forEach(sp => {
-          if (sp.supplier == null || sp.supplier === '') {
-            // Uniform pricing (BANANAS) - use pack as key
-          newSalesPriceMap.set(sp.pack, sp.sales_price);
-          } else {
-            // Supplier-specific pricing (PINEAPPLES) - use "pack|supplier" as key
-            const key = `${sp.pack}|${sp.supplier}`;
-            salesPricesByPackSupplier.set(key, sp.sales_price);
+        filteredSalesData.forEach(sp => {
+          // Only process prices that match the selected year (or all if year is null)
+          if (priceYear === null || sp.year === priceYear) {
+            if (sp.supplier == null || sp.supplier === '') {
+              // Uniform pricing (BANANAS) - use pack as key
+              newSalesPriceMap.set(sp.pack, sp.sales_price);
+            } else {
+              // Supplier-specific pricing (PINEAPPLES) - use "pack|supplier" as key
+              const key = `${sp.pack}|${sp.supplier}`;
+              salesPricesByPackSupplier.set(key, sp.sales_price);
+            }
           }
         });
 
         // Purchase prices: "pack|supplier" -> price
         const newPurchasePriceMap = new Map<string, number>();
-        purchaseData?.forEach(pp => {
-          const key = `${pp.pack}|${pp.supplier}`;
-          newPurchasePriceMap.set(key, pp.purchase_price);
+        filteredPurchaseData.forEach(pp => {
+          // Only process prices that match the selected year (or all if year is null)
+          if (priceYear === null || pp.year === priceYear) {
+            const key = `${pp.pack}|${pp.supplier}`;
+            newPurchasePriceMap.set(key, pp.purchase_price);
+          }
         });
 
         // Store the maps for direct access
@@ -103,17 +154,18 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         const combinedMap = new Map<string, { sales: number; purchase: number }>();
         
         // For each pack, create entries for all suppliers with sales price
+        // Use filtered data to ensure we only work with prices for the selected year
         const allPacks = new Set<string>();
-        salesData?.forEach(sp => allPacks.add(sp.pack));
-        purchaseData?.forEach(pp => allPacks.add(pp.pack));
+        filteredSalesData.forEach(sp => allPacks.add(sp.pack));
+        filteredPurchaseData.forEach(pp => allPacks.add(pp.pack));
         
         allPacks.forEach(pack => {
-          // Get all suppliers for this pack
+          // Get all suppliers for this pack (from filtered data)
           const suppliersForPack = new Set<string>();
-          purchaseData?.forEach(pp => {
+          filteredPurchaseData.forEach(pp => {
             if (pp.pack === pack) suppliersForPack.add(pp.supplier);
           });
-          salesData?.forEach(sp => {
+          filteredSalesData.forEach(sp => {
             if (sp.pack === pack && sp.supplier) suppliersForPack.add(sp.supplier);
           });
           
@@ -140,14 +192,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     };
 
     fetchPrices();
-  }, [selectedFruit, priceKey]);
-
-  // Get unique years from data for selected fruit type
-  const years = useMemo(() => {
-    const fruitData = data.filter(r => r.item === selectedFruit);
-    const uniqueYears = Array.from(new Set(fruitData.map(r => r.year))).sort((a, b) => b - a);
-    return uniqueYears;
-  }, [data, selectedFruit]);
+  }, [selectedFruit, selectedYear, priceKey, data]);
 
   // Filter data by fruit type and year
   const filteredData = useMemo(() => {

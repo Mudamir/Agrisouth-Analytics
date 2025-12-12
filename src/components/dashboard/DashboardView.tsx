@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { FruitType, PackStats, ShippingRecord } from '@/types/shipping';
+import { FruitType, PackStats, ShippingRecord, FilterState } from '@/types/shipping';
 import { StatCard } from './StatCard';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { usePackRequirements } from '@/hooks/usePackRequirements';
@@ -35,9 +35,10 @@ interface DashboardViewProps {
   supplierStats: { supplier: string; containers: number; cartons: number }[];
   data: ShippingRecord[];
   filteredData: ShippingRecord[];
+  filters: FilterState;
 }
 
-export function DashboardView({ fruit, packStats, totalStats, supplierStats, data, filteredData }: DashboardViewProps) {
+export function DashboardView({ fruit, packStats, totalStats, supplierStats, data, filteredData, filters }: DashboardViewProps) {
   const { isAdmin } = useAuth();
   
   // Fetch packs from database
@@ -50,24 +51,31 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
     return years[0] || new Date().getFullYear();
   }, [data]);
 
+  // Use filtered year if available, otherwise use currentYear
+  const displayYear = useMemo(() => {
+    return filters.year !== null ? filters.year : currentYear;
+  }, [filters.year, currentYear]);
+
   // Requirements management
-  const [settingsYear, setSettingsYear] = useState(currentYear);
+  const [settingsYear, setSettingsYear] = useState(displayYear);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Main hook for display
+  // Main hook for display - use filtered year
   const { 
     getRequirement,
     reload: reloadMainRequirements
-  } = usePackRequirements(fruit, currentYear);
+  } = usePackRequirements(fruit, displayYear);
   
-  // Hook for dialog editing
+  // Hook for dialog editing - use settingsYear (can be different from displayYear for editing other years)
   const { 
     requirements: dialogRequirements, 
+    isLoading: dialogRequirementsLoading,
     updateRequirements,
     reload: reloadDialogRequirements
   } = usePackRequirements(fruit, settingsYear);
   
   const [tempRequirements, setTempRequirements] = useState<Record<string, number>>({});
+  const [isInitializing, setIsInitializing] = useState(false);
   
   // Use packs from database, or fallback to packStats if database packs are not available
   const availablePacks = useMemo(() => {
@@ -78,30 +86,42 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
     return packStats.map(stat => stat.pack);
   }, [dbPacks, packStats]);
 
-  // Get available years from data
+  // Get available years from data (ensure displayYear is included)
   const availableYears = useMemo(() => {
-    const years = [...new Set(data.map(r => r.year))].sort((a, b) => b - a);
-    return years.length > 0 ? years : [currentYear];
-  }, [data, currentYear]);
+    const years = [...new Set(data.map(r => r.year))];
+    // Ensure displayYear is included even if not in data
+    if (!years.includes(displayYear)) {
+      years.push(displayYear);
+    }
+    return years.sort((a, b) => b - a);
+  }, [data, displayYear]);
 
-  // Reload requirements when year changes in dialog (but not when dialogRequirements changes to avoid losing user input)
+  // Reload requirements when year changes in dialog
   useEffect(() => {
     if (isSettingsOpen) {
+      setIsInitializing(true);
       const loadData = async () => {
         await reloadDialogRequirements();
-        // Use a small delay to ensure requirements state is updated
-        setTimeout(() => {
-          setTempRequirements({ ...dialogRequirements });
-        }, 100);
       };
       loadData();
     }
-  }, [settingsYear, isSettingsOpen, reloadDialogRequirements]); // Removed dialogRequirements from dependencies
+  }, [settingsYear, isSettingsOpen, reloadDialogRequirements]);
+
+  // Initialize temp requirements when dialogRequirements are loaded
+  useEffect(() => {
+    if (isSettingsOpen && !dialogRequirementsLoading) {
+      // Initialize tempRequirements with loaded data from database
+      // This will be an empty object if no requirements exist, which is fine
+      setTempRequirements({ ...dialogRequirements });
+      setIsInitializing(false);
+    }
+  }, [dialogRequirements, dialogRequirementsLoading, isSettingsOpen]);
 
   // Initialize temp requirements when dialog opens
   const handleOpenSettings = () => {
-    setSettingsYear(currentYear);
+    setSettingsYear(displayYear);
     setIsSettingsOpen(true);
+    // The useEffect will handle reloading requirements
   };
 
   // Helper function to check if pack is 18KG
@@ -110,10 +130,10 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
     return packUpper === '18KG' || packUpper === '18 KG A' || packUpper.includes('18 KG');
   };
 
-  // Calculate weekly trend for the selected fruit only
+  // Calculate weekly trend for the selected fruit only (using filteredData to respect year filter)
   const weeklyTrend = useMemo(() => {
     const weekMap = new Map<number, number>();
-    data
+    filteredData
       .filter(r => r.item === fruit) // Filter by selected fruit
       .forEach(r => {
         const current = weekMap.get(r.week) || 0;
@@ -122,20 +142,20 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
     return Array.from(weekMap.entries())
       .map(([week, cartons]) => ({ week, cartons }))
       .sort((a, b) => a.week - b.week);
-  }, [data, fruit]);
+  }, [filteredData, fruit]);
 
   // Calculate number of weeks in the filtered data
   const numberOfWeeks = useMemo(() => {
-    // Get unique weeks from the filtered data for the current year and fruit
+    // Get unique weeks from the filtered data for the display year and fruit
     // Use filteredData since packStats is calculated from filteredData
     const weeksInData = new Set(
       filteredData
-        .filter(r => r.item === fruit && r.year === currentYear)
+        .filter(r => r.item === fruit && r.year === displayYear)
         .map(r => r.week)
     );
     // If no weeks found, default to 52 (full year)
     return weeksInData.size > 0 ? weeksInData.size : 52;
-  }, [filteredData, fruit, currentYear]);
+  }, [filteredData, fruit, displayYear]);
 
   // Calculate containers by pack for comparison with requirements
   const packContainers = useMemo(() => {
@@ -167,7 +187,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
         status: achieved >= required ? 'met' : 'below'
       };
     }).sort((a, b) => b.achieved - a.achieved); // Sort by achieved containers (descending)
-  }, [packStats, getRequirement, currentYear, numberOfWeeks]); // Added numberOfWeeks to dependencies
+  }, [packStats, getRequirement, displayYear, numberOfWeeks]); // Added numberOfWeeks to dependencies
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       {/* Header - Unified Component */}
@@ -354,9 +374,9 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
                     </p>
                   </div>
                   {/* Pack Requirements - using packs from database */}
-                  {packsLoading ? (
+                  {packsLoading || dialogRequirementsLoading || isInitializing ? (
                     <div className="text-center py-4 text-muted-foreground">
-                      Loading packs...
+                      Loading requirements...
                     </div>
                   ) : availablePacks.length === 0 ? (
                     <div className="text-center py-4 text-muted-foreground">
@@ -367,6 +387,19 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
                       // Get current delivered containers for this pack from packStats
                       const packStat = packStats.find(ps => ps.pack === pack);
                       const deliveredContainers = packStat ? packStat.containers : 0;
+                      
+                      // Determine the value to display: prioritize tempRequirements (user edits), then dialogRequirements (from DB)
+                      const getDisplayValue = () => {
+                        // If user has edited this pack, use tempRequirements
+                        if (tempRequirements[pack] !== undefined) {
+                          return tempRequirements[pack] === 0 ? '' : String(tempRequirements[pack]);
+                        }
+                        // Otherwise, use value from database
+                        if (dialogRequirements[pack] !== undefined && dialogRequirements[pack] > 0) {
+                          return String(dialogRequirements[pack]);
+                        }
+                        return '';
+                      };
                       
                       return (
                         <div key={pack} className="flex items-center gap-4">
@@ -379,13 +412,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
                             step="0.01"
                             min="0"
                             placeholder="Weekly containers"
-                            value={
-                              tempRequirements[pack] !== undefined
-                                ? (tempRequirements[pack] === 0 ? '' : String(tempRequirements[pack]))
-                                : (dialogRequirements[pack] !== undefined && dialogRequirements[pack] > 0
-                                    ? String(dialogRequirements[pack])
-                                    : '')
-                            }
+                            value={getDisplayValue()}
                             onChange={(e) => {
                               if (!isAdmin) return;
                               const inputValue = e.target.value;
@@ -456,8 +483,8 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
                           // Reload requirements for dialog
                           await reloadDialogRequirements();
                           
-                          // If we saved for the current year, also reload the main hook to update the graph
-                          if (settingsYear === currentYear) {
+                          // If we saved for the display year, also reload the main hook to update the graph
+                          if (settingsYear === displayYear) {
                             await reloadMainRequirements();
                           }
                           

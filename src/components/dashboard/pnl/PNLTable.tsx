@@ -108,6 +108,9 @@ export function PNLTable({
                   </TableHead>
                 );
               })}
+              <TableHead className="text-right font-semibold min-w-[90px] text-[10px] py-1.5 px-2 whitespace-nowrap bg-muted/80 border-l-2 border-border">
+                <span className="text-[10px]">Total</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -156,6 +159,19 @@ export function PNLTable({
                     </TableCell>
                   );
                 })}
+                <TableCell className={cn(
+                  'text-right text-[11px] py-1.5 px-2 font-semibold whitespace-nowrap bg-muted/40 border-l-2 border-border',
+                  isProfit && pack.totals[type] !== 0 && (
+                    pack.totals[type] >= 0 
+                      ? 'text-emerald-600 dark:text-emerald-500' 
+                      : 'text-red-600 dark:text-red-500'
+                  )
+                )}>
+                  {isProfit && pack.totals[type] !== 0 && (
+                    <span className="mr-1">{pack.totals[type] >= 0 ? '↑' : '↓'}</span>
+                  )}
+                  {formatDisplayValue(pack.totals[type])}
+                </TableCell>
               </TableRow>
               );
             })}
@@ -197,6 +213,19 @@ export function PNLTable({
                   </TableCell>
                 );
               })}
+              <TableCell className={cn(
+                'text-right text-[11px] py-2 px-2 whitespace-nowrap font-bold bg-muted/70 border-l-2 border-border',
+                isProfit && grandTotals[type] !== 0 && (
+                  grandTotals[type] >= 0 
+                    ? 'text-emerald-600 dark:text-emerald-500' 
+                    : 'text-red-600 dark:text-red-500'
+                )
+              )}>
+                {isProfit && grandTotals[type] !== 0 && (
+                  <span className="mr-1">{grandTotals[type] >= 0 ? '↑' : '↓'}</span>
+                )}
+                {formatDisplayValue(grandTotals[type])}
+              </TableCell>
             </TableRow>
           </TableBody>
         </Table>

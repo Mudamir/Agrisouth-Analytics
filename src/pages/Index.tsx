@@ -69,6 +69,7 @@ const Index = () => {
           supplierStats={supplierStats}
           data={data || []}
           filteredData={filteredData || []}
+          filters={filters}
         />
       )}
 

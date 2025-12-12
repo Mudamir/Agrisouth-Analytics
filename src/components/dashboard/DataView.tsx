@@ -49,6 +49,8 @@ const pineapplePacks = ['7C', '8C', '9C', '10C', '12C'];
 
 export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   const { getPols, getDestinations, getBananaSuppliers, getPineappleSuppliers, getSLines, isLoading: configLoading } = useConfiguration();
+  const { userRole } = useAuth();
+  const isViewer = userRole === 'viewer';
   const [isOpen, setIsOpen] = useState(false);
   const [filterItem, setFilterItem] = useState<FruitType | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -737,13 +739,14 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
               Export CSV
             </Button>
 
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Record
-              </Button>
-            </DialogTrigger>
+          {!isViewer && (
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Record
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="font-heading">
@@ -1099,24 +1102,21 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   {/* Pack Entries List */}
                   {packEntries.length > 0 && (
                     <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
-                      <div className="grid grid-cols-6 gap-2 text-xs font-semibold text-muted-foreground pb-2 border-b">
+                      <div className="grid grid-cols-5 gap-2 text-xs font-semibold text-muted-foreground pb-2 border-b">
                         <div>Pack</div>
                         <div className="text-right">Cartons</div>
                         <div className="text-right">L.Count</div>
                         <div className="text-right">Price</div>
-                        <div className="text-right">Total</div>
                         <div></div>
                       </div>
                       {packEntries.map((entry, index) => {
                         const loadCount = calculateLoadCount(entry.cartons);
-                        const total = entry.cartons * entry.price;
                         return (
-                          <div key={index} className="grid grid-cols-6 gap-2 items-center py-2 border-b last:border-0">
+                          <div key={index} className="grid grid-cols-5 gap-2 items-center py-2 border-b last:border-0">
                             <div className="font-medium">{entry.pack}</div>
                             <div className="text-right">{entry.cartons.toLocaleString()}</div>
                             <div className="text-right text-xs text-muted-foreground">{loadCount.toFixed(8)}</div>
                             <div className="text-right">${entry.price.toFixed(2)}</div>
-                            <div className="text-right font-semibold">${total.toFixed(2)}</div>
                             <div className="text-right">
                               <Button
                                 variant="ghost"
@@ -1193,6 +1193,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
               </div>
             </DialogContent>
           </Dialog>
+          )}
           </div>
         </div>
 
@@ -1321,13 +1322,15 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                 <TableHead className="text-primary-foreground">L.Cont</TableHead>
                 <TableHead className="text-primary-foreground">Cartons</TableHead>
                 <TableHead className="text-primary-foreground">Type</TableHead>
-                <TableHead className="text-primary-foreground w-16 text-center">Actions</TableHead>
+                {!isViewer && (
+                  <TableHead className="text-primary-foreground w-16 text-center">Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={isViewer ? 13 : 14} className="text-center py-8 text-muted-foreground">
                     {(searchQuery || selectedYear || selectedWeek || selectedSupplier) 
                       ? 'No records found matching your filters.' 
                       : !data || data.length === 0
@@ -1362,22 +1365,24 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                         {record.type}
                       </span>
                     </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setRecordToDelete(record);
-                        setDeleteDialogOpen(true);
-                        setPassword('');
-                        setPasswordError('');
-                      }}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      title="Delete record"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
+                  {!isViewer && (
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRecordToDelete(record);
+                          setDeleteDialogOpen(true);
+                          setPassword('');
+                          setPasswordError('');
+                        }}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Delete record"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
               )}

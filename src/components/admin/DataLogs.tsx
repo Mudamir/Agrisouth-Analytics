@@ -292,10 +292,6 @@ export function DataLogs() {
             <RefreshCw className={cn("w-4 h-4", (refreshing || loadingLogs) && "animate-spin")} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <Badge variant="outline" className="text-sm">
-            <Database className="w-4 h-4 mr-1" />
-            Last 50 entries
-          </Badge>
         </div>
       </div>
 

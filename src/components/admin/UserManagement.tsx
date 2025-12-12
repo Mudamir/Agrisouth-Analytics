@@ -23,11 +23,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Shield, User, Mail, Calendar, CheckCircle, XCircle, Activity, Settings, Grid3x3 } from 'lucide-react';
+import { Shield, User, Mail, Calendar, CheckCircle, XCircle, Activity, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPermissionsEditor } from './UserPermissionsEditor';
 import { SimplePageAccessManager } from './SimplePageAccessManager';
 
 export function UserManagement() {
@@ -35,8 +34,6 @@ export function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [permissionsEditorOpen, setPermissionsEditorOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState<'list' | 'access'>('access');
 
   useEffect(() => {
@@ -214,7 +211,6 @@ export function UserManagement() {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Login</TableHead>
-              {isAdmin && <TableHead>Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -269,22 +265,6 @@ export function UserManagement() {
                     <span className="text-sm text-muted-foreground">Never</span>
                   )}
                 </TableCell>
-                {isAdmin && (
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setPermissionsEditorOpen(true);
-                      }}
-                      className="gap-2"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Permissions
-                    </Button>
-                  </TableCell>
-                )}
               </TableRow>
             ))}
             </TableBody>
@@ -299,32 +279,9 @@ export function UserManagement() {
               <li><strong>User:</strong> Can view and add data, limited editing</li>
               <li><strong>Viewer:</strong> Read-only access</li>
             </ul>
-            {isAdmin && (
-              <p className="mt-3 text-xs italic">
-                💡 Tip: Use the "Permissions" button to override role-based permissions for individual users.
-              </p>
-            )}
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Permissions Editor Dialog */}
-      {selectedUser && (
-        <UserPermissionsEditor
-          userId={selectedUser.id}
-          userName={selectedUser.full_name || selectedUser.email}
-          userRole={selectedUser.role}
-          open={permissionsEditorOpen}
-          onOpenChange={setPermissionsEditorOpen}
-          onPermissionsUpdated={() => {
-            loadUsers();
-            // If editing own permissions, refresh auth context
-            if (selectedUser.id === currentUser?.id) {
-              // The editor will handle refreshing permissions
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
