@@ -44,6 +44,13 @@ export function UserManagement() {
       return;
     }
     loadUsers();
+
+    // Auto-refresh user list every 30 seconds to show real-time status changes
+    const refreshInterval = setInterval(() => {
+      loadUsers();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
   }, [isAdmin, userRole]);
 
   async function loadUsers() {

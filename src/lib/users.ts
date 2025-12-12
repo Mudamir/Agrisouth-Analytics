@@ -186,6 +186,26 @@ export async function updateLastLogin(userId: string): Promise<void> {
 }
 
 /**
+ * Clear last login timestamp (set to old timestamp to mark user as inactive)
+ * Used when user logs out or closes tab
+ */
+export async function clearLastLogin(userId: string): Promise<void> {
+  if (!supabase) return;
+
+  try {
+    // Set to a timestamp that's older than 5 minutes to mark as inactive
+    const oldTimestamp = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 minutes ago
+    await supabase
+      .from('user_profiles')
+      .update({ last_login: oldTimestamp })
+      .eq('id', userId);
+  } catch (error) {
+    logger.safeError('Error clearing last login', error);
+    // Don't throw - this is not critical
+  }
+}
+
+/**
  * Convert UTC timestamp to GMT+8 for display
  */
 export function convertToGMT8(utcTimestamp: string | null): string | null {

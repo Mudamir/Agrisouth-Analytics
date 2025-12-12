@@ -13,7 +13,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { login as authLogin, logout as authLogout, getCurrentSession, type LoginCredentials } from '@/lib/auth';
-import { getCurrentUserProfile, getUserById, updateLastLogin, type UserProfile } from '@/lib/users';
+import { getCurrentUserProfile, getUserById, updateLastLogin, clearLastLogin, type UserProfile } from '@/lib/users';
 import { getUserGrantedPermissions } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 
@@ -116,6 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   updateLastLogin(session.user.id).catch((err) => logger.safeError('Error updating last login', err));
                 }
               } else if (event === 'SIGNED_OUT') {
+                // Clear last_login to mark user as inactive
+                const currentUserId = user?.id;
+                if (currentUserId) {
+                  clearLastLogin(currentUserId).catch((err) => 
+                    logger.safeError('Error clearing last login on sign out', err)
+                  );
+                }
+                
                 setSession(null);
                 setUser(null);
                 setUserProfile(null);
@@ -170,9 +178,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(refreshInterval);
   }, [session]);
 
+  // Heartbeat: Update last_login periodically while user is active (every 2 minutes)
+  useEffect(() => {
+    if (!user?.id || !session) return;
+
+    // Update immediately on mount
+    updateLastLogin(user.id).catch((err) => 
+      logger.safeError('Error updating last login heartbeat', err)
+    );
+
+    // Update every 2 minutes to keep user marked as active
+    const heartbeatInterval = setInterval(() => {
+      if (user?.id) {
+        updateLastLogin(user.id).catch((err) => 
+          logger.safeError('Error updating last login heartbeat', err)
+        );
+      }
+    }, 2 * 60 * 1000); // Every 2 minutes
+
+    return () => clearInterval(heartbeatInterval);
+  }, [user?.id, session]);
+
+  // Handle tab visibility: Update last_login when tab becomes visible again
+  // When tab is hidden or closed, the heartbeat stops, so last_login will become stale after 5 minutes
+  useEffect(() => {
+    if (!user?.id || !session) return;
+
+    let hiddenTimeout: NodeJS.Timeout | null = null;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is now hidden - clear any existing timeout
+        if (hiddenTimeout) {
+          clearTimeout(hiddenTimeout);
+          hiddenTimeout = null;
+        }
+        // Don't clear immediately - user might just be switching tabs
+        // The heartbeat stopping will naturally cause status to become inactive after 5 minutes
+      } else {
+        // Tab is visible again - immediately update last_login to mark as active
+        if (user?.id) {
+          updateLastLogin(user.id).catch((err) => 
+            logger.safeError('Error updating last login on visibility change', err)
+          );
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (hiddenTimeout) {
+        clearTimeout(hiddenTimeout);
+      }
+    };
+  }, [user?.id, session]);
+
   // Define handleLogout before it's used in the 8-hour timeout effect
   const handleLogout = useCallback(async () => {
     try {
+      // Clear last_login to mark user as inactive
+      const currentUserId = user?.id;
+      if (currentUserId) {
+        clearLastLogin(currentUserId).catch((err) => 
+          logger.safeError('Error clearing last login on logout', err)
+        );
+      }
+      
       // Clear state immediately - this ensures user is logged out
       setUser(null);
       setSession(null);
@@ -196,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('loginTimestamp');
       navigate('/login', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, user]);
 
   // 8-hour auto-logout timer
   useEffect(() => {
