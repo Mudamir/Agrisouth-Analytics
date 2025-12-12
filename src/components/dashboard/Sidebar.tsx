@@ -352,7 +352,7 @@ export function Sidebar({
           isCollapsed ? "flex-col" : "flex-row"
         )}>
           <a 
-            href="https://mail.google.com/mail/?view=cm&fs=1"
+            href="https://outlook.office.com/mail/"
             target="_blank"
             rel="noopener noreferrer"
             className={cn(

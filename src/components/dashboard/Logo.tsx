@@ -20,7 +20,7 @@ export function Logo({ className, showText = true }: LogoProps) {
       {showText && (
         <div className="flex-1 min-w-0">
           <h1 className="text-sm font-bold font-heading text-primary-foreground leading-tight">
-            Agrisouth
+            AGSouth
           </h1>
           <p className="text-xs text-primary-foreground/70 font-medium">
             Dashboard

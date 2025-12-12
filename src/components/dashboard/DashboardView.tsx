@@ -204,7 +204,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
         {/* Text Content - Centered */}
         <div className="flex flex-col items-center gap-2 text-center">
           <h1 className="text-2xl font-bold font-heading text-foreground leading-tight">
-            Agrisouth Fruits Pacific Branch Office
+            AGSouth Fruits Pacific Branch Office
           </h1>
           <p className="page-title text-3xl font-extrabold text-orange-500">{fruit}</p>
         </div>

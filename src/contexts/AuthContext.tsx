@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -99,9 +100,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             logger.debug('Auth state changed:', event);
             
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+              // Don't restore session if we're logging out
+              const isLoggingOutCheck = localStorage.getItem('isLoggingOut') === 'true';
+              if (isLoggingOutCheck) {
+                logger.debug('Ignoring SIGNED_IN/TOKEN_REFRESHED event during logout');
+                return;
+              }
+              
               setSession(session);
               if (session?.user) {
                 setUser(session.user);
+                // Set login timestamp for 8-hour auto-logout (only on SIGNED_IN, not TOKEN_REFRESHED)
+                if (event === 'SIGNED_IN') {
+                  localStorage.setItem('loginTimestamp', Date.now().toString());
+                } else if (event === 'TOKEN_REFRESHED') {
+                  // On token refresh, preserve existing timestamp if it exists
+                  if (!localStorage.getItem('loginTimestamp')) {
+                    localStorage.setItem('loginTimestamp', Date.now().toString());
+                  }
+                }
                 // Load user profile
                 loadUserProfile(session.user.id).catch((err) => logger.safeError('Error loading user profile', err));
                 // Update last login (fire and forget)
@@ -111,10 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setSession(null);
               setUser(null);
               setUserProfile(null);
-              // Only navigate if not already on login page
+              // Clear login timestamp on sign out
+              localStorage.removeItem('loginTimestamp');
+              // Set logout flag to prevent redirect loops
+              localStorage.setItem('isLoggingOut', 'true');
+              // Only navigate if not already on login page and not already logging out
               if (location.pathname !== '/login') {
                 navigate('/login', { replace: true });
               }
+              // Clear logout flag after navigation
+              setTimeout(() => {
+                localStorage.removeItem('isLoggingOut');
+              }, 500);
             } else if (event === 'USER_UPDATED') {
               if (session?.user) {
                 setUser(session.user);
@@ -262,6 +287,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('focus', handleFocus);
   }, [user?.id, loadUserPermissions]);
 
+  // Define handleLogout before it's used in the 8-hour timeout effect
+  const handleLogout = useCallback(async () => {
+    try {
+      // Set logout flags to prevent redirect loops and session restoration
+      setIsLoggingOut(true);
+      localStorage.setItem('isLoggingOut', 'true');
+      
+      // Clear state immediately and synchronously
+      setUser(null);
+      setSession(null);
+      setUserProfile(null);
+      setUserPermissions([]);
+      // Clear login timestamp on logout
+      localStorage.removeItem('loginTimestamp');
+      
+      // Navigate to login immediately - use replace to prevent back button issues
+      navigate('/login', { replace: true });
+      
+      // Then perform the actual logout (this is async but navigation already happened)
+      await authLogout();
+      
+      // Keep logout flag for longer to prevent session restoration
+      // Only clear it after we're sure the logout is complete and user is on login page
+      setTimeout(() => {
+        // Only clear if we're still on login page
+        if (window.location.pathname === '/login') {
+          setIsLoggingOut(false);
+          localStorage.removeItem('isLoggingOut');
+        } else {
+          // If somehow we're not on login, keep the flag and try again
+          setTimeout(() => {
+            if (window.location.pathname === '/login') {
+              setIsLoggingOut(false);
+              localStorage.removeItem('isLoggingOut');
+            }
+          }, 2000);
+        }
+      }, 2000);
+    } catch (error) {
+      logger.safeError('Logout error', error);
+      // Even if logout fails, ensure we're on login page
+      setIsLoggingOut(true);
+      localStorage.setItem('isLoggingOut', 'true');
+      setUser(null);
+      setSession(null);
+      setUserProfile(null);
+      setUserPermissions([]);
+      localStorage.removeItem('loginTimestamp');
+      navigate('/login', { replace: true });
+      setTimeout(() => {
+        if (window.location.pathname === '/login') {
+          setIsLoggingOut(false);
+          localStorage.removeItem('isLoggingOut');
+        }
+      }, 2000);
+    }
+  }, [navigate]);
+
+  // 8-hour auto-logout timer
+  useEffect(() => {
+    if (!user || !session) {
+      // Clear login timestamp if user is not authenticated
+      localStorage.removeItem('loginTimestamp');
+      return;
+    }
+
+    // Get or set login timestamp
+    const getLoginTimestamp = (): number => {
+      const stored = localStorage.getItem('loginTimestamp');
+      if (stored) {
+        return parseInt(stored, 10);
+      }
+      // If no timestamp exists, set it to now (for existing sessions)
+      const now = Date.now();
+      localStorage.setItem('loginTimestamp', now.toString());
+      return now;
+    };
+
+    const loginTimestamp = getLoginTimestamp();
+    const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+
+    // Check if 8 hours have passed
+    const checkTimeout = () => {
+      const now = Date.now();
+      const elapsed = now - loginTimestamp;
+
+      if (elapsed >= EIGHT_HOURS_MS) {
+        logger.debug('8-hour session timeout reached, logging out user');
+        handleLogout().catch((err) => logger.safeError('Error during auto-logout', err));
+        localStorage.removeItem('loginTimestamp');
+      }
+    };
+
+    // Check immediately
+    checkTimeout();
+
+    // Check every minute
+    const interval = setInterval(checkTimeout, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [user, session, handleLogout]);
+
   async function initializeAuth() {
     try {
       // Only initialize if supabase is available
@@ -271,13 +398,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Don't restore session if we're in the middle of logging out or on login page
+      const isLoggingOutCheck = localStorage.getItem('isLoggingOut') === 'true';
+      const isOnLoginPage = window.location.pathname === '/login';
+      
+      if (isLoggingOutCheck || (isOnLoginPage && isLoggingOutCheck)) {
+        setLoading(false);
+        return;
+      }
+
       // Get session (this is the fastest way - uses cached session if available)
       const currentSession = await getCurrentSession();
+
+      // Double-check we're not logging out before restoring session
+      const stillLoggingOut = localStorage.getItem('isLoggingOut') === 'true';
+      const stillOnLoginPage = window.location.pathname === '/login';
+      
+      if (stillLoggingOut || (stillOnLoginPage && stillLoggingOut)) {
+        setLoading(false);
+        return;
+      }
+      
+      // If we're on login page, don't restore session (user should log in fresh)
+      if (stillOnLoginPage && !currentSession) {
+        setLoading(false);
+        return;
+      }
 
       if (currentSession && currentSession.user) {
         // Use user from session instead of making another network call
         setSession(currentSession);
         setUser(currentSession.user);
+        
+        // Set or restore login timestamp for 8-hour auto-logout
+        // Only set if it doesn't exist (to preserve existing session time)
+        if (!localStorage.getItem('loginTimestamp')) {
+          localStorage.setItem('loginTimestamp', Date.now().toString());
+        }
         
         // Load user profile in background (don't block on it)
         // This allows the app to render faster
@@ -302,6 +459,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.success && response.user && response.session) {
         setUser(response.user);
         setSession(response.session);
+        // Set login timestamp for 8-hour auto-logout
+        localStorage.setItem('loginTimestamp', Date.now().toString());
         const from = (location.state as any)?.from?.pathname || '/';
         navigate(from, { replace: true });
         return { success: true };
@@ -313,18 +472,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'An unexpected error occurred' };
     }
   }, [navigate, location.state]);
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await authLogout();
-      setUser(null);
-      setSession(null);
-      navigate('/login', { replace: true });
-    } catch (error) {
-      logger.safeError('Logout error', error);
-      throw error;
-    }
-  }, [navigate]);
 
   async function refreshSession() {
     try {
@@ -405,7 +552,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout: handleLogout,
     refreshSession,
     refreshPermissions,
-    isAuthenticated: !!user && !!session,
+    isAuthenticated: !!user && !!session && !isLoggingOut,
     isAdmin: userProfile?.role === 'admin' && userProfile?.is_active === true,
     userRole: userProfile?.role || null,
     canAccessPage,

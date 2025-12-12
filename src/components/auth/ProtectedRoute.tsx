@@ -55,8 +55,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <>{children}</>;
   }
 
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
+  // Check if we're in the middle of a logout
+  const isLoggingOut = typeof window !== 'undefined' && localStorage.getItem('isLoggingOut') === 'true';
+  
+  // Redirect to login if not authenticated or if logging out
+  if (!isAuthenticated || isLoggingOut) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

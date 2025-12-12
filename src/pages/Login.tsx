@@ -19,14 +19,43 @@ const Login = () => {
   const [emailError, setEmailError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
-
-  // Redirect if already authenticated
+  const { login, isAuthenticated, logout } = useAuth();
+  
+  // Clear logout flag when component mounts (user is on login page)
   useEffect(() => {
-    if (isAuthenticated) {
-      const from = (location.state as any)?.from?.pathname || '/';
-      navigate(from, { replace: true });
+    // Small delay to ensure logout completed
+    const timer = setTimeout(() => {
+      // Only clear if we're still on login page (user didn't navigate away)
+      if (window.location.pathname === '/login') {
+        localStorage.removeItem('isLoggingOut');
+      }
+    }, 3000); // Wait 3 seconds to ensure logout is complete
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Redirect if already authenticated (but not if we just logged out)
+  useEffect(() => {
+    // Check if we're in the middle of a logout
+    const isLoggingOut = localStorage.getItem('isLoggingOut') === 'true';
+    
+    // If we're logging out, don't redirect - stay on login page
+    if (isLoggingOut) {
+      return;
     }
+    
+    // Only redirect if authenticated and not logging out
+    // Use a longer delay to ensure logout state is fully cleared
+    const timer = setTimeout(() => {
+      // Triple-check we're not logging out
+      const stillLoggingOut = localStorage.getItem('isLoggingOut') === 'true';
+      if (!stillLoggingOut && isAuthenticated) {
+        const from = (location.state as any)?.from?.pathname || '/';
+        navigate(from, { replace: true });
+      }
+    }, 500); // Longer delay to ensure logout completes
+    
+    return () => clearTimeout(timer);
   }, [isAuthenticated, navigate, location]);
 
   // Validate email on change
@@ -57,9 +86,14 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      // Clear logout flag before attempting login
+      localStorage.removeItem('isLoggingOut');
+      
       const result = await login({ email, password });
       
       if (result.success) {
+        // Clear logout flag on successful login
+        localStorage.removeItem('isLoggingOut');
         // Navigation handled by AuthContext
         const from = (location.state as any)?.from?.pathname || '/';
         navigate(from, { replace: true });
@@ -136,9 +170,16 @@ const Login = () => {
             
             {/* Brand Name - Clean and Modern */}
             <div className="space-y-6">
-              <h1 className="text-7xl font-bold font-heading tracking-tight leading-none text-white drop-shadow-lg">
-                Agrisouth
-              </h1>
+              <div className="space-y-1.5">
+                <h1 className="text-5xl font-bold font-heading tracking-tight leading-tight text-white drop-shadow-lg">
+                  AGSouth Fruits Pacific Branch Office
+                </h1>
+                <p className="text-lg text-white/65 font-light tracking-wide italic">
+                  <span className="text-white/50">(</span>
+                  Agrisouth Jersey Ltd.
+                  <span className="text-white/50">)</span>
+                </p>
+              </div>
               
               {/* Organic Divider - Inspired by natural elements */}
               <div className="flex items-center justify-center gap-2 py-2">
@@ -149,12 +190,8 @@ const Login = () => {
                 <div className="w-12 h-px bg-white/30 rounded-full" />
               </div>
               
-              <p className="text-3xl text-white/95 font-semibold tracking-wider uppercase drop-shadow-md">
-                Fruits Pacific
-              </p>
-              
               {/* Subtitle - Subtle and elegant */}
-              <p className="text-base text-white/75 font-light tracking-wide pt-3 letter-spacing-wide">
+              <p className="text-base text-white/80 font-light tracking-wider pt-3 uppercase letter-spacing-wide">
                 Business Intelligence Platform
               </p>
             </div>
@@ -290,17 +327,20 @@ const Login = () => {
                 </Button>
               </form>
 
-              {/* Divider */}
-              <div className="relative pt-2">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border/50" />
-                </div>
-                <div className="relative flex justify-center items-center gap-2">
-                  <Shield className="w-3 h-3 text-muted-foreground" />
-                  <span className="bg-card px-4 text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                    Secure Login
-                  </span>
-                  <Shield className="w-3 h-3 text-muted-foreground" />
+              {/* Organic Divider - Elegant and refined */}
+              <div className="relative pt-6">
+                <div className="flex items-center justify-center gap-2.5">
+                  <div className="w-10 h-px bg-gradient-to-r from-transparent via-border/30 to-border/50 rounded-full" />
+                  <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                  <div className="flex items-center gap-2 px-4">
+                    <Shield className="w-3.5 h-3.5 text-muted-foreground/50" />
+                    <span className="text-[10px] text-muted-foreground/55 font-light tracking-[0.15em] uppercase leading-none">
+                      Secure Login
+                    </span>
+                    <Shield className="w-3.5 h-3.5 text-muted-foreground/50" />
+                  </div>
+                  <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                  <div className="w-10 h-px bg-gradient-to-l from-transparent via-border/30 to-border/50 rounded-full" />
                 </div>
               </div>
             </div>
