@@ -176,28 +176,30 @@ export function Sidebar({
             )}
           </button>
           
-          <button
-            onClick={() => onNavigate('data')}
-            className={cn(
-              'w-full flex items-center rounded-lg transition-all duration-200 group relative',
-              isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
-              currentPage === 'data'
-                ? 'bg-accent text-accent-foreground shadow-md shadow-accent/20'
-                : 'text-primary-foreground/80 hover:bg-primary/60 hover:text-primary-foreground'
-            )}
-            title={isCollapsed ? "Data" : undefined}
-          >
-            <Database className={cn(
-              'transition-transform duration-200 flex-shrink-0',
-              isCollapsed ? 'w-5 h-5' : 'w-5 h-5',
-              currentPage === 'data' 
-                ? 'scale-110' 
-                : 'group-hover:scale-105'
-            )} />
-            {!isCollapsed && (
-              <span className="font-semibold text-sm">Data</span>
-            )}
-          </button>
+          {canAccessPage('data') && (
+            <button
+              onClick={() => onNavigate('data')}
+              className={cn(
+                'w-full flex items-center rounded-lg transition-all duration-200 group relative',
+                isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
+                currentPage === 'data'
+                  ? 'bg-accent text-accent-foreground shadow-md shadow-accent/20'
+                  : 'text-primary-foreground/80 hover:bg-primary/60 hover:text-primary-foreground'
+              )}
+              title={isCollapsed ? "Data" : undefined}
+            >
+              <Database className={cn(
+                'transition-transform duration-200 flex-shrink-0',
+                isCollapsed ? 'w-5 h-5' : 'w-5 h-5',
+                currentPage === 'data' 
+                  ? 'scale-110' 
+                  : 'group-hover:scale-105'
+              )} />
+              {!isCollapsed && (
+                <span className="font-semibold text-sm">Data</span>
+              )}
+            </button>
+          )}
           
           {canAccessPNL && (
             <button

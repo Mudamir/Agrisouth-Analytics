@@ -178,10 +178,21 @@ export function useShippingData() {
   const destinations = useMemo(() => getUniqueDestinations(fruitData), [fruitData]);
 
   // Custom sort order for pack stats (left to right)
-  // Order: 13.5 KG A, 13.5 KG B, 13.5 KG SH, 7KG (or 7.2 KG A), 3KG (or 3 KG A), 18KG (or 18 KG A)
+  // For Pineapples: 7C, 8C, 9C, 10C, 11C, 12C (sorted numerically)
+  // For Bananas: 13.5 KG A, 13.5 KG B, 13.5 KG SH, 7KG (or 7.2 KG A), 3KG (or 3 KG A), 18KG (or 18 KG A)
   const getPackSortOrder = (pack: string): number => {
     const packUpper = pack.toUpperCase().trim();
     
+    // Check if it's a pineapple pack (pattern: number followed by 'C', e.g., 7C, 8C, 9C, 10C, 11C, 12C)
+    const pineappleMatch = packUpper.match(/^(\d+)C$/);
+    if (pineappleMatch) {
+      const number = parseInt(pineappleMatch[1], 10);
+      // Return the number directly so 7C=7, 8C=8, 9C=9, 10C=10, 11C=11, 12C=12
+      // This ensures they sort in ascending order from 7C to 12C
+      return number;
+    }
+    
+    // Banana pack sorting (existing logic)
     // 1. 13.5 KG A (exact match or contains 13.5 and A, but not B or SH)
     if (packUpper === '13.5 KG A' || (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
       return 1;

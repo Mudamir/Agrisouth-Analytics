@@ -14,6 +14,70 @@ interface AnalysisViewProps {
 }
 
 export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisViewProps) {
+  // Helper function to get sort order for a pack
+  const getPackSortOrder = (pack: string): number => {
+    const packUpper = pack.toUpperCase().trim();
+    
+    // Check if it's a pineapple pack (pattern: number followed by 'C', e.g., 7C, 8C, 9C, 10C, 11C, 12C)
+    const pineappleMatch = packUpper.match(/^(\d+)C$/);
+    if (pineappleMatch) {
+      const number = parseInt(pineappleMatch[1], 10);
+      // Return the number directly so 7C=7, 8C=8, 9C=9, 10C=10, 11C=11, 12C=12
+      // This ensures they sort in ascending order from 7C to 12C
+      return number;
+    }
+    
+    // Banana pack sorting - Order: 13.5 KG A, 13.5 KG B, 13.5 KG SH, 3KG, 7KG, 18KG
+    // 1. 13.5 KG A (exact match or contains 13.5 and A, but not B or SH)
+    if (packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
+        (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH')) ||
+        (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
+      return 1;
+    }
+    // 2. 13.5 KG B
+    if (packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
+        (packUpper.includes('13.5') && packUpper.includes('B')) ||
+        (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('B'))) {
+      return 2;
+    }
+    // 3. 13.5 KG SH
+    if (packUpper === '13.5 KG SH' || packUpper === '13KG SH' || packUpper === '13 KG SH' ||
+        (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H'))) ||
+        (packUpper.includes('13') && packUpper.includes('KG') && (packUpper.includes('SH') || packUpper.includes('S/H')))) {
+      return 3;
+    }
+    // 4. 3KG or 3 KG A (matches "3KG" exactly or starts with "3" and has KG, but not part of 13.5)
+    if (packUpper === '3KG' || packUpper === '3 KG A' || 
+        (packUpper.match(/^3\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('13 KG'))) {
+      return 4;
+    }
+    // 5. 7KG or 7.2 KG A (matches "7KG" exactly or starts with "7" and has KG, but not part of 13.5, 17, 27)
+    if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
+        (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
+      return 5;
+    }
+    // 6. 18KG or 18 KG A
+    if (packUpper === '18KG' || packUpper === '18 KG A' || packUpper.includes('18 KG')) {
+      return 6;
+    }
+    // Any other packs go to the end
+    return 999;
+  };
+
+  // Helper function to sort packs
+  const sortPacks = (a: { pack: string; cartons: number; containers: number }, b: { pack: string; cartons: number; containers: number }) => {
+    const orderA = getPackSortOrder(a.pack);
+    const orderB = getPackSortOrder(b.pack);
+    
+    // First sort by custom order
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    
+    // If same order, sort by pack name alphabetically
+    return a.pack.localeCompare(b.pack);
+  };
+
   // Data is already filtered by FilterPanel and selectedFruit from useShippingData
   // Calculate supplier statistics with pack breakdown
   const supplierStats = useMemo(() => {
@@ -52,7 +116,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
             cartons: stats.cartons,
             containers: parseFloat(stats.containers.toFixed(2)),
           }))
-          .sort((a, b) => b.cartons - a.cartons),
+          .sort(sortPacks),
       }))
       .sort((a, b) => a.supplier.localeCompare(b.supplier));
   }, [data]);
