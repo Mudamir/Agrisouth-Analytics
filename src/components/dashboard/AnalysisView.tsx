@@ -14,6 +14,38 @@ interface AnalysisViewProps {
 }
 
 export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisViewProps) {
+  // Helper function to get carton-to-container divisor based on pack weight
+  // Returns the number of cartons per container for a given pack
+  const getCartonToContainerDivisor = (pack: string): number | null => {
+    const packUpper = pack.toUpperCase().trim();
+    
+    // 13kg packs (13.5 KG A, 13.5 KG B, 13.5 KG SH): cartons / 1540
+    if (packUpper.includes('13.5') || (packUpper.includes('13') && packUpper.includes('KG') && !packUpper.includes('3KG'))) {
+      return 1540;
+    }
+    
+    // 7kg packs: cartons / 2470
+    if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
+        (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && 
+        !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
+      return 2470;
+    }
+    
+    // 3kg packs: cartons / 6375
+    if (packUpper === '3KG' || packUpper === '3 KG A' || 
+        (packUpper.match(/^3\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('13 KG'))) {
+      return 6375;
+    }
+    
+    // 18kg packs: cartons / 1080
+    if (packUpper === '18KG' || packUpper === '18 KG A' || packUpper.includes('18 KG')) {
+      return 1080;
+    }
+    
+    // For other packs (like pineapples), return null to use existing lCont calculation
+    return null;
+  };
+
   // Helper function to get sort order for a pack
   const getPackSortOrder = (pack: string): number => {
     const packUpper = pack.toUpperCase().trim();
@@ -94,12 +126,27 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
         packs: new Map(),
       };
 
+      // For supplier total, use lCont (load count) directly from the data
       existing.cartons += r.cartons;
       existing.containers += r.lCont;
 
+      // For pack breakdown, use dashboard formula (cartons / divisor) for banana packs
       const packData = existing.packs.get(r.pack) || { cartons: 0, containers: 0 };
       packData.cartons += r.cartons;
-      packData.containers += r.lCont;
+      
+      // Calculate containers for pack breakdown using dashboard formula
+      const divisor = getCartonToContainerDivisor(r.pack);
+      let packContainerValue = 0;
+      
+      if (divisor !== null) {
+        // Use cartons / divisor for banana packs
+        packContainerValue = r.cartons / divisor;
+      } else {
+        // For other packs (like pineapples), use existing lCont
+        packContainerValue = r.lCont;
+      }
+      
+      packData.containers += packContainerValue;
       existing.packs.set(r.pack, packData);
 
       supplierMap.set(r.supplier, existing);
@@ -123,6 +170,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
 
 
   const totalCartons = data.reduce((sum, r) => sum + r.cartons, 0);
+  // For supplier/analysis view, use lCont directly from the data
   const totalContainers = data.reduce((sum, r) => sum + r.lCont, 0);
   const uniqueSuppliers = supplierStats.length;
   

@@ -9,9 +9,10 @@ interface StatCardProps {
   style?: CSSProperties;
   isLoading?: boolean;
   delay?: number; // Stagger delay for progressive reveal
+  decimalPlaces?: number; // Number of decimal places to show (default: 0)
 }
 
-export function StatCard({ label, value, className, variant = 'default', style, isLoading = false, delay = 0 }: StatCardProps) {
+export function StatCard({ label, value, className, variant = 'default', style, isLoading = false, delay = 0, decimalPlaces = 0 }: StatCardProps) {
   const [displayValue, setDisplayValue] = useState<string | number>(isLoading ? '' : value);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -67,8 +68,8 @@ export function StatCard({ label, value, className, variant = 'default', style, 
         >
           {typeof displayValue === 'number' 
             ? displayValue.toLocaleString('en-US', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
+                minimumFractionDigits: decimalPlaces,
+                maximumFractionDigits: decimalPlaces,
               })
             : displayValue}
         </p>

@@ -177,6 +177,38 @@ export function useShippingData() {
   const pols = useMemo(() => getUniquePols(fruitData), [fruitData]);
   const destinations = useMemo(() => getUniqueDestinations(fruitData), [fruitData]);
 
+  // Helper function to get carton-to-container divisor based on pack weight
+  // Returns the number of cartons per container for a given pack
+  const getCartonToContainerDivisor = (pack: string): number | null => {
+    const packUpper = pack.toUpperCase().trim();
+    
+    // 13kg packs (13.5 KG A, 13.5 KG B, 13.5 KG SH): cartons / 1540
+    if (packUpper.includes('13.5') || (packUpper.includes('13') && packUpper.includes('KG') && !packUpper.includes('3KG'))) {
+      return 1540;
+    }
+    
+    // 7kg packs: cartons / 2470
+    if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
+        (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && 
+        !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
+      return 2470;
+    }
+    
+    // 3kg packs: cartons / 6375
+    if (packUpper === '3KG' || packUpper === '3 KG A' || 
+        (packUpper.match(/^3\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('13 KG'))) {
+      return 6375;
+    }
+    
+    // 18kg packs: cartons / 1080
+    if (packUpper === '18KG' || packUpper === '18 KG A' || packUpper.includes('18 KG')) {
+      return 1080;
+    }
+    
+    // For other packs (like pineapples), return null to use existing lCont calculation
+    return null;
+  };
+
   // Custom sort order for pack stats (left to right)
   // For Pineapples: 7C, 8C, 9C, 10C, 11C, 12C (sorted numerically)
   // For Bananas: 13.5 KG A, 13.5 KG B, 13.5 KG SH, 7KG (or 7.2 KG A), 3KG (or 3 KG A), 18KG (or 18 KG A)
@@ -228,8 +260,21 @@ export function useShippingData() {
     
     filteredData.forEach(record => {
       const existing = statsMap.get(record.pack) || { containers: 0, cartons: 0 };
+      
+      // Calculate containers based on cartons and pack weight divisor
+      const divisor = getCartonToContainerDivisor(record.pack);
+      let containerValue = 0;
+      
+      if (divisor !== null) {
+        // Use cartons / divisor for banana packs
+        containerValue = record.cartons / divisor;
+      } else {
+        // For other packs (like pineapples), use existing lCont
+        containerValue = record.lCont;
+      }
+      
       statsMap.set(record.pack, {
-        containers: existing.containers + record.lCont,
+        containers: existing.containers + containerValue,
         cartons: existing.cartons + record.cartons,
       });
     });
@@ -256,10 +301,13 @@ export function useShippingData() {
 
   const totalStats = useMemo(() => {
     return filteredData.reduce(
-      (acc, record) => ({
-        containers: acc.containers + record.lCont,
-        cartons: acc.cartons + record.cartons,
-      }),
+      (acc, record) => {
+        // Use lCont (load count) directly from the data for total containers
+        return {
+          containers: acc.containers + record.lCont,
+          cartons: acc.cartons + record.cartons,
+        };
+      },
       { containers: 0, cartons: 0 }
     );
   }, [filteredData]);
@@ -269,6 +317,8 @@ export function useShippingData() {
     
     filteredData.forEach(record => {
       const existing = statsMap.get(record.supplier) || { containers: 0, cartons: 0 };
+      
+      // For supplier stats, use lCont (load count) directly from the data
       statsMap.set(record.supplier, {
         containers: existing.containers + record.lCont,
         cartons: existing.cartons + record.cartons,

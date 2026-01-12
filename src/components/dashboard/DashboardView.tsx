@@ -221,6 +221,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
               key={stat.pack}
               label={stat.pack}
               value={stat.containers}
+              decimalPlaces={2}
               className={is18KG(stat.pack) 
                 ? "animate-fade-in bg-gradient-to-b from-[hsl(18,75%,45%)] to-[hsl(18,70%,40%)] text-white" 
                 : "animate-fade-in"}
@@ -254,7 +255,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
       <section className="grid grid-cols-2 gap-4 mb-6">
         <div className="stat-card">
           <p className="stat-card-label">Total Number of Containers Shipped</p>
-          <p className="stat-card-value text-3xl">{totalStats.containers.toLocaleString()}</p>
+          <p className="stat-card-value text-3xl">{Math.round(totalStats.containers).toLocaleString()}</p>
         </div>
         <div className="stat-card">
           <p className="stat-card-label">Total Number of Cartons Shipped</p>
