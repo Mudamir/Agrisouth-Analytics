@@ -44,7 +44,7 @@ interface DataViewProps {
 }
 
 // Pack options remain hardcoded as they're product-specific
-const bananaPacks = ['13.5 KG A', '13.5 KG B', '13.5 KG SH', '7KG', '3KG', '18KG'];
+const bananaPacks = ['13.5 KG A', '13.5 KG B', '13.5 KG SH', '7KG', '6KG', '3KG', '18KG'];
 const pineapplePacks = ['7C', '8C', '9C', '10C', '12C'];
 
 export function DataView({ data, onAdd, onDelete }: DataViewProps) {
