@@ -187,9 +187,9 @@ export function useShippingData() {
       return 1540;
     }
     
-    // 7kg packs: cartons / 2470
-    if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
-        (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && 
+    // 6kg and 7kg packs: cartons / 2470
+    if (packUpper === '6KG' || packUpper === '7KG' || packUpper === '7.2 KG A' || 
+        (packUpper.match(/^6\s*KG/i) || packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && 
         !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
       return 2470;
     }
@@ -241,6 +241,10 @@ export function useShippingData() {
     if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
         (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
       return 4;
+    }
+    // 4.5. 6KG (between 7KG and 3KG)
+    if (packUpper === '6KG' || (packUpper.match(/^6\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('16') && !packUpper.includes('26'))) {
+      return 4.5;
     }
     // 5. 3KG or 3 KG A (matches "3KG" exactly or starts with "3" and has KG, but not part of 13.5)
     if (packUpper === '3KG' || packUpper === '3 KG A' || 

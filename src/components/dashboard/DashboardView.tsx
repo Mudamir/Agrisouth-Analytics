@@ -223,9 +223,16 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
               value={stat.containers}
               decimalPlaces={2}
               className={is18KG(stat.pack) 
-                ? "animate-fade-in bg-gradient-to-b from-[hsl(18,75%,45%)] to-[hsl(18,70%,40%)] text-white" 
+                ? "animate-fade-in text-white shadow-lg" 
                 : "animate-fade-in"}
-              style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
+              style={is18KG(stat.pack) 
+                ? { 
+                    animationDelay: `${index * 50}ms`,
+                    '--stat-card-bg': 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
+                    background: 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
+                    backgroundImage: 'none',
+                  } as React.CSSProperties
+                : { animationDelay: `${index * 50}ms` } as React.CSSProperties}
             />
           ))}
         </div>
@@ -243,9 +250,16 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
               label={stat.pack}
               value={stat.cartons}
               className={is18KG(stat.pack) 
-                ? "animate-fade-in bg-gradient-to-b from-[hsl(18,75%,45%)] to-[hsl(18,70%,40%)] text-white" 
+                ? "animate-fade-in text-white shadow-lg" 
                 : "animate-fade-in"}
-              style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
+              style={is18KG(stat.pack) 
+                ? { 
+                    animationDelay: `${index * 50}ms`,
+                    '--stat-card-bg': 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
+                    background: 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
+                    backgroundImage: 'none',
+                  } as React.CSSProperties
+                : { animationDelay: `${index * 50}ms` } as React.CSSProperties}
             />
           ))}
         </div>

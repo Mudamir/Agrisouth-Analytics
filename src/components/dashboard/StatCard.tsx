@@ -29,18 +29,26 @@ export function StatCard({ label, value, className, variant = 'default', style, 
     }
   }, [isLoading, value, displayValue, delay]);
 
+  const hasCustomBackground = style?.background || style?.backgroundColor;
+  
   return (
     <div 
       className={cn(
         'stat-card transition-all duration-500 ease-out',
-        !isLoading && 'animate-scale-in'
+        !isLoading && 'animate-scale-in',
+        hasCustomBackground && 'stat-card-custom-bg'
       )} 
       style={{
-        ...style,
         animationDelay: `${delay}ms`,
         transitionDelay: `${delay}ms`,
-        opacity: isLoading ? 0.7 : 1
-      }}
+        opacity: isLoading ? 0.7 : 1,
+        ...(hasCustomBackground && { 
+          '--stat-card-bg': style.background || style.backgroundColor,
+          background: style.background || style.backgroundColor,
+          backgroundImage: 'none'
+        } as React.CSSProperties),
+        ...style
+      } as React.CSSProperties}
     >
       <p className="stat-card-label">{label}</p>
       {isLoading ? (

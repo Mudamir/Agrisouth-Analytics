@@ -6,7 +6,6 @@ import {
   Database, 
   Mail, 
   Banana,
-  TreePine,
   TrendingUp,
   Package,
   DollarSign,
@@ -21,6 +20,7 @@ import {
 import { Logo } from './Logo';
 import logoImage from '@/Images/AGSouth-Icon.png';
 import { useAuth } from '@/contexts/AuthContext';
+import { PineappleIcon } from './PineappleIcon';
 
 interface SidebarProps {
   selectedFruit: FruitType;
@@ -133,7 +133,7 @@ export function Sidebar({
             )}
             title={isCollapsed ? "Pineapples" : undefined}
           >
-            <TreePine className={cn(
+            <PineappleIcon className={cn(
               'transition-transform duration-200 flex-shrink-0',
               isCollapsed ? 'w-5 h-5' : 'w-5 h-5',
               selectedFruit === 'PINEAPPLES' && currentPage === 'dashboard' 

@@ -3,7 +3,8 @@ import { ShippingRecord, FruitType } from '@/types/shipping';
 import { SupplierCard } from './SupplierCard';
 import { StatCard } from './StatCard';
 import { Button } from '@/components/ui/button';
-import { Banana, TreePine } from 'lucide-react';
+import { Banana } from 'lucide-react';
+import { PineappleIcon } from './PineappleIcon';
 import { cn } from '@/lib/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
@@ -24,9 +25,9 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
       return 1540;
     }
     
-    // 7kg packs: cartons / 2470
-    if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
-        (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && 
+    // 6kg and 7kg packs: cartons / 2470
+    if (packUpper === '6KG' || packUpper === '7KG' || packUpper === '7.2 KG A' || 
+        (packUpper.match(/^6\s*KG/i) || packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && 
         !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
       return 2470;
     }
@@ -82,6 +83,10 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
     if (packUpper === '3KG' || packUpper === '3 KG A' || 
         (packUpper.match(/^3\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('13 KG'))) {
       return 4;
+    }
+    // 4.5. 6KG (between 3KG and 7KG)
+    if (packUpper === '6KG' || (packUpper.match(/^6\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('16') && !packUpper.includes('26'))) {
+      return 4.5;
     }
     // 5. 7KG or 7.2 KG A (matches "7KG" exactly or starts with "7" and has KG, but not part of 13.5, 17, 27)
     if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
@@ -262,7 +267,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
                 : 'hover:bg-muted'
             )}
           >
-            <TreePine className="w-4 h-4" />
+            <PineappleIcon className="w-4 h-4" />
             <span>Pineapples</span>
           </Button>
         </div>

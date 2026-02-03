@@ -21,7 +21,9 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana } from 'lucide-react';
+import { PineappleIcon } from './PineappleIcon';
+import ExcelJS from 'exceljs';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -63,6 +65,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+  const [selectedPack, setSelectedPack] = useState<string>('');
   
   const [newRecord, setNewRecord] = useState({
     year: new Date().getFullYear(),
@@ -118,6 +121,9 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     if (selectedSupplier) {
       filtered = filtered.filter(record => record.supplier === selectedSupplier);
     }
+    if (selectedPack) {
+      filtered = filtered.filter(record => record.pack === selectedPack);
+    }
     
     // Then apply text search
     const trimmedQuery = searchQuery.trim();
@@ -140,7 +146,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
         String(record.cartons).includes(query)
       );
     });
-  }, [itemFilteredData, searchQuery, selectedYear, selectedWeek, selectedSupplier]);
+  }, [itemFilteredData, searchQuery, selectedYear, selectedWeek, selectedSupplier, selectedPack]);
 
   // Pagination - memoized for instant updates
   const totalPages = useMemo(() => Math.ceil(searchedData.length / itemsPerPage), [searchedData.length, itemsPerPage]);
@@ -154,6 +160,11 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filterItem]);
+
+  // Reset pack filter when fruit type changes (since packs differ by fruit)
+  useEffect(() => {
+    setSelectedPack('');
+  }, [filterItem]);
 
   // Filter packs and suppliers based on selected item
   const packs = useMemo(() => {
@@ -183,6 +194,11 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     if (!data || data.length === 0) return [];
     return [...new Set(data.map(r => r.supplier))].sort();
   }, [data]);
+
+  const uniquePacks = useMemo(() => {
+    if (!itemFilteredData || itemFilteredData.length === 0) return [];
+    return [...new Set(itemFilteredData.map(r => r.pack))].sort();
+  }, [itemFilteredData]);
 
   // Check if all required fields for container mode are filled
   const isContainerModeReady = useMemo(() => {
@@ -549,20 +565,93 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     setCurrentPackEntry({ pack: '', cartons: 0, price: 8.65 });
   };
 
-  const handleExport = () => {
-      const headers = ['Year', 'Week', 'ETD', 'POL', 'Item', 'Destination', 'Supplier', 'S.Line', 'Container', 'Pack', 'L.Cont', 'Cartons', 'Price', 'Type'];
-      const rows = searchedData.map(r => [
-        r.year, r.week, r.etd, r.pol, r.item, r.destination, r.supplier, r.sLine, r.container, r.pack, r.lCont, r.cartons, r.price, r.type
-      ]);
+  const handleExport = async () => {
+    const headers = ['Year', 'Week', 'ETD', 'POL', 'Item', 'Destination', 'Supplier', 'S.Line', 'Container', 'Pack', 'L.Cont', 'Cartons', 'Price', 'Type'];
     
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    // Create a new workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Shipping Data');
+    
+    // Set column widths
+    worksheet.columns = [
+      { width: 6 },  // Year
+      { width: 6 },  // Week
+      { width: 12 }, // ETD
+      { width: 8 },  // POL
+      { width: 12 }, // Item
+      { width: 15 }, // Destination
+      { width: 20 }, // Supplier
+      { width: 10 }, // S.Line
+      { width: 15 }, // Container
+      { width: 12 }, // Pack
+      { width: 10 }, // L.Cont
+      { width: 10 }, // Cartons
+      { width: 10 }, // Price
+      { width: 10 }, // Type
+    ];
+    
+    // Define border style
+    const borderStyle = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } }
+    };
+    
+    // Add header row with blue background, white text, and bold
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell, colNumber) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4472C4' } // Blue background
+      };
+      cell.font = {
+        bold: true,
+        color: { argb: 'FFFFFFFF' } // White text
+      };
+      cell.border = borderStyle;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    
+    // Add data rows
+    searchedData.forEach(record => {
+      const row = worksheet.addRow([
+        record.year,
+        record.week,
+        record.etd,
+        record.pol,
+        record.item,
+        record.destination,
+        record.supplier,
+        record.sLine,
+        record.container,
+        record.pack,
+        parseFloat(record.lCont.toFixed(4)), // Format L.Cont to 4 decimal places
+        record.cartons,
+        record.price,
+        record.type
+      ]);
+      
+      // Add borders to all cells in the row
+      row.eachCell((cell) => {
+        cell.border = borderStyle;
+        cell.alignment = { vertical: 'middle' };
+      });
+    });
+    
+    // Generate file and download
+    const fileName = `shipping_data_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `shipping_data_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = fileName;
     a.click();
-    toast.success(`Exported ${searchedData.length} records successfully`);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${searchedData.length} records to ${fileName}`);
   };
 
   const handleClearSearch = () => {
@@ -570,6 +659,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     setSelectedYear('');
     setSelectedWeek('');
     setSelectedSupplier('');
+    setSelectedPack('');
     setCurrentPage(1);
   };
 
@@ -670,526 +760,21 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
             <h1 className="page-title">DATA MANAGEMENT</h1>
             <p className="text-muted-foreground">Add, view, and manage shipping records</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Select value={filterItem} onValueChange={(v) => setFilterItem(v as FruitType | 'ALL')}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Items</SelectItem>
-                <SelectItem value="BANANAS">Bananas</SelectItem>
-                <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
-
-          {!isViewer && (
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Record
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-heading">
-                  {containerMode ? 'Add Container Records' : 'Add New Shipping Record'}
-                </DialogTitle>
-              </DialogHeader>
-              
-              {/* Validation Alert */}
-              {validationMessage && (
-                <Alert 
-                  variant={validationMessage.type === 'error' ? 'destructive' : 'default'}
-                  className={cn(
-                    validationMessage.type === 'success' && 'border-green-500 bg-green-50 dark:bg-green-950',
-                    validationMessage.type === 'warning' && 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950'
-                  )}
-                >
-                  {validationMessage.type === 'error' && <AlertCircle className="h-4 w-4" />}
-                  {validationMessage.type === 'success' && <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                  {validationMessage.type === 'warning' && <AlertCircle className="h-4 w-4 text-yellow-600" />}
-                  <AlertDescription className={cn(
-                    validationMessage.type === 'success' && 'text-green-800 dark:text-green-200',
-                    validationMessage.type === 'warning' && 'text-yellow-800 dark:text-yellow-200'
-                  )}>
-                    {validationMessage.message}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Container Info Section - Editable when not in container mode or when unlocked in container mode */}
-              {(!containerMode || (containerMode && !containerInfoLocked)) && (
-                <div className="grid grid-cols-2 gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>Year</Label>
-                  <Select 
-                    value={newRecord.year.toString()} 
-                    onValueChange={(v) => setNewRecord({ ...newRecord, year: parseInt(v) })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 10 }, (_, i) => {
-                        const year = new Date().getFullYear() - 2 + i;
-                        return (
-                          <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Week</Label>
-                  <Select 
-                    value={newRecord.week.toString()} 
-                    onValueChange={(v) => setNewRecord({ ...newRecord, week: parseInt(v) })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 52 }, (_, i) => {
-                        const week = i + 1;
-                        return (
-                          <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>ETD</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !newRecord.etdDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {newRecord.etdDate ? format(newRecord.etdDate, "MM/dd/yyyy") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={newRecord.etdDate}
-                        onSelect={(date) => setNewRecord({ ...newRecord, etdDate: date })}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  <Label>POL</Label>
-                  <Select value={newRecord.pol} onValueChange={(v) => setNewRecord({ ...newRecord, pol: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {pols.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Item</Label>
-                  <Select 
-                    value={newRecord.item} 
-                    onValueChange={(v) => {
-                      const newItem = v as FruitType;
-                      setNewRecord({ 
-                        ...newRecord, 
-                        item: newItem, 
-                        pack: '', // Reset pack when item changes
-                        supplier: '' // Reset supplier when item changes
-                      });
-                    }}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="BANANAS">Bananas</SelectItem>
-                      <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Destination</Label>
-                  <Select value={newRecord.destination} onValueChange={(v) => setNewRecord({ ...newRecord, destination: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
-                    <SelectContent>
-                      {destinations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Supplier</Label>
-                  <Select value={newRecord.supplier} onValueChange={(v) => setNewRecord({ ...newRecord, supplier: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>S.Line</Label>
-                  <Select value={newRecord.sLine} onValueChange={(v) => setNewRecord({ ...newRecord, sLine: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {sLines.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Container</Label>
-                  <Input
-                    placeholder="XXXX1234567"
-                    value={newRecord.container}
-                    onChange={(e) => {
-                      const value = e.target.value.toUpperCase();
-                      let filteredValue = '';
-                      
-                      if (value.length <= 4) {
-                        // First 4 characters: only letters (A-Z), no numbers
-                        filteredValue = value.replace(/[^A-Z]/g, '');
-                      } else {
-                        // First 4: letters only (A-Z), rest: integers only (0-9)
-                        const firstFour = value.substring(0, 4).replace(/[^A-Z]/g, '');
-                        const rest = value.substring(4).replace(/[^0-9]/g, ''); // Only digits after first 4
-                        filteredValue = firstFour + rest;
-                      }
-                      
-                      setNewRecord({ ...newRecord, container: filteredValue });
-                    }}
-                    maxLength={20}
-                  />
-                  {newRecord.container.length > 0 && newRecord.container.length < 4 && (
-                    <p className="text-xs text-muted-foreground">
-                      First 4 characters must be letters only (A-Z). Remaining characters must be numbers (0-9).
-                    </p>
-                  )}
-                  {newRecord.container.length >= 4 && (
-                    <p className="text-xs text-muted-foreground">
-                      Format: 4 letters + numbers (e.g., ABCD1234567)
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select 
-                    value={newRecord.type} 
-                    onValueChange={(v) => setNewRecord({ ...newRecord, type: v as 'CONTRACT' | 'SPOT' })}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CONTRACT">CONTRACT</SelectItem>
-                      <SelectItem value="SPOT">SPOT</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              )}
-
-
-              {/* Container Mode: Show locked container info and pack entry form */}
-              {containerMode && containerInfoLocked && (
-                <>
-                  {/* Container Info Summary - Read Only */}
-                  <div className="bg-muted/50 rounded-lg p-4 border space-y-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-sm">Container Information</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setContainerInfoLocked(false);
-                        }}
-                        className="h-7 text-xs"
-                      >
-                        Change
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Year</Label>
-                        <div className="font-medium">{newRecord.year}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Week</Label>
-                        <div className="font-medium">{newRecord.week}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">ETD</Label>
-                        <div className="font-medium">{newRecord.etdDate ? format(newRecord.etdDate, 'MM/dd/yyyy') : '-'}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">POL</Label>
-                        <div className="font-medium">{newRecord.pol}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Item</Label>
-                        <div className="font-medium">{newRecord.item}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Destination</Label>
-                        <div className="font-medium">{newRecord.destination}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Supplier</Label>
-                        <div className="font-medium">{newRecord.supplier}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">S.Line</Label>
-                        <div className="font-medium">{newRecord.sLine}</div>
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-xs text-muted-foreground">Container</Label>
-                        <div className="font-mono font-medium">{newRecord.container}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Type</Label>
-                        <div className="font-medium">{newRecord.type}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Total Cartons Input */}
-                  <div className="space-y-2">
-                    <Label>Total Cartons in Container *</Label>
-                    <Input
-                      type="number"
-                      placeholder="Enter total cartons"
-                      value={containerTotalCartons}
-                      onChange={(e) => {
-                        const value = e.target.value === '' ? '' : parseInt(e.target.value);
-                        setContainerTotalCartons(value);
-                      }}
-                      className="font-semibold text-lg"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      This is the total capacity of the container. All pack entries must sum to this value.
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {/* Container Mode: Pack Entries Section - Only show after locking container info */}
-              {containerMode && containerInfoLocked && (
-                <div className="space-y-4 border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Add Pack Entries</h3>
-                    <div className="text-sm text-muted-foreground">
-                      {existingRecordsForContainer.length > 0 && (
-                        <span className="text-yellow-600 dark:text-yellow-400 mr-2">
-                          Existing: {existingCartonsTotal.toLocaleString()} + 
-                        </span>
-                      )}
-                      New: <span className="font-semibold text-foreground">{totalPackCartons.toLocaleString()}</span> / 
-                      <span className="font-semibold text-foreground"> {containerTotalCartons ? containerTotalCartons.toLocaleString() : '0'}</span> cartons
-                      {existingRecordsForContainer.length > 0 && (
-                        <span className="ml-2">
-                          (Total: <span className="font-semibold">{totalCartonsIncludingExisting.toLocaleString()}</span>)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Add Pack Entry Form - Pack and Cartons together */}
-                  <div className="grid grid-cols-3 gap-3 p-4 bg-muted/30 rounded-lg border">
-                    <div className="space-y-2 col-span-2">
-                      <Label className="text-sm font-medium">Pack & Cartons</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select 
-                          value={currentPackEntry.pack} 
-                          onValueChange={(v) => setCurrentPackEntry({ ...currentPackEntry, pack: v })}
-                        >
-                          <SelectTrigger className="h-10"><SelectValue placeholder="Select pack" /></SelectTrigger>
-                          <SelectContent>
-                            {packs.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          className="h-10"
-                          placeholder="Cartons"
-                          value={currentPackEntry.cartons || ''}
-                          onChange={(e) => setCurrentPackEntry({ ...currentPackEntry, cartons: parseInt(e.target.value) || 0 })}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && currentPackEntry.pack && currentPackEntry.cartons > 0) {
-                              e.preventDefault();
-                              handleAddPackEntry();
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Price ($)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="h-10"
-                        value={currentPackEntry.price}
-                        onChange={(e) => setCurrentPackEntry({ ...currentPackEntry, price: parseFloat(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div className="col-span-3 flex items-end">
-                      <Button 
-                        onClick={handleAddPackEntry}
-                        className="w-full h-10"
-                        disabled={!currentPackEntry.pack || !currentPackEntry.cartons || currentPackEntry.cartons <= 0 || !containerTotalCartons}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Pack Entry
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Pack Entries List */}
-                  {packEntries.length > 0 && (
-                    <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
-                      <div className="grid grid-cols-5 gap-2 text-xs font-semibold text-muted-foreground pb-2 border-b">
-                        <div>Pack</div>
-                        <div className="text-right">Cartons</div>
-                        <div className="text-right">L.Count</div>
-                        <div className="text-right">Price</div>
-                        <div></div>
-                      </div>
-                      {packEntries.map((entry, index) => {
-                        const loadCount = calculateLoadCount(entry.cartons);
-                        return (
-                          <div key={index} className="grid grid-cols-5 gap-2 items-center py-2 border-b last:border-0">
-                            <div className="font-medium">{entry.pack}</div>
-                            <div className="text-right">{entry.cartons.toLocaleString()}</div>
-                            <div className="text-right text-xs text-muted-foreground">{loadCount.toFixed(8)}</div>
-                            <div className="text-right">${entry.price.toFixed(2)}</div>
-                            <div className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemovePackEntry(index)}
-                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                {/* Show Cancel and Lock button when container mode is active but not locked */}
-                {containerMode && !containerInfoLocked ? (
-                  <>
-                    <Button variant="outline" onClick={() => {
-                      setIsOpen(false);
-                      setContainerMode(false);
-                      setContainerInfoLocked(false);
-                      setContainerTotalCartons('');
-                      setPackEntries([]);
-                    }}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleLockContainerInfo}
-                      disabled={!isContainerModeReady}
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Lock Container Info
-                    </Button>
-                  </>
-                ) : containerMode && containerInfoLocked ? (
-                  <>
-                    <Button variant="outline" onClick={() => {
-                      setIsOpen(false);
-                      setContainerMode(false);
-                      setContainerInfoLocked(false);
-                      setContainerTotalCartons('');
-                      setPackEntries([]);
-                    }}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleSubmit}
-                      disabled={packEntries.length === 0 || totalCartonsIncludingExisting !== containerTotalCartons}
-                    >
-                      Add {packEntries.length} Record(s)
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" onClick={() => {
-                      setIsOpen(false);
-                      setContainerMode(false);
-                      setContainerInfoLocked(false);
-                      setContainerTotalCartons('');
-                      setPackEntries([]);
-                    }}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSubmit}>
-                      Add Record
-                    </Button>
-                  </>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-          )}
-          </div>
+          <Button 
+            onClick={handleExport} 
+            className="gap-2 h-11 px-6 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
+          >
+            <Download className="w-5 h-5" />
+            Export Data
+          </Button>
         </div>
 
         {/* Search Bar with Dropdowns */}
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {/* Year Dropdown */}
-            <Select value={selectedYear || undefined} onValueChange={(value) => { setSelectedYear(value === 'all' ? '' : value); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[140px] h-10">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
-                {uniqueYears.map(year => (
-                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Week Dropdown */}
-            <Select value={selectedWeek || undefined} onValueChange={(value) => { setSelectedWeek(value === 'all' ? '' : value); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[140px] h-10">
-                <SelectValue placeholder="Week" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Weeks</SelectItem>
-                {uniqueWeeks.map(week => (
-                  <SelectItem key={week} value={week.toString()}>{week}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Supplier Dropdown */}
-            <Select value={selectedSupplier || undefined} onValueChange={(value) => { setSelectedSupplier(value === 'all' ? '' : value); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[200px] h-10">
-                <SelectValue placeholder="Supplier" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Suppliers</SelectItem>
-                {uniqueSuppliers.map(supplier => (
-                  <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Search Input */}
-            <div className="relative flex-1 min-w-[250px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <div className="flex flex-wrap items-center gap-3 bg-card border border-border rounded-lg p-4 shadow-sm">
+            {/* Search Input - Prominent */}
+            <div className="relative flex-1 min-w-[300px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10" />
               <Input
                 type="text"
                 placeholder="Search by container, pack, S.Line, POL, destination, or cartons..."
@@ -1198,27 +783,589 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="pl-10 pr-10"
+                className="pl-10 pr-10 h-10 bg-background border-border focus:ring-2 focus:ring-primary/20"
                 autoComplete="off"
               />
-              {(searchQuery || selectedYear || selectedWeek || selectedSupplier) && (
+              {(searchQuery || selectedYear || selectedWeek || selectedSupplier || selectedPack) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleClearSearch}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
+                  title="Clear all filters"
                 >
                   <X className="w-4 h-4" />
                 </Button>
               )}
             </div>
+
+            {/* Filter Dropdowns - Compact Design */}
+            <div className="flex items-center gap-2">
+              {/* Year Dropdown */}
+              <Select value={selectedYear || undefined} onValueChange={(value) => { setSelectedYear(value === 'all' ? '' : value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[130px] h-10 bg-background border-border">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {uniqueYears.map(year => (
+                    <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Week Dropdown */}
+              <Select value={selectedWeek || undefined} onValueChange={(value) => { setSelectedWeek(value === 'all' ? '' : value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[130px] h-10 bg-background border-border">
+                  <SelectValue placeholder="Week" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Weeks</SelectItem>
+                  {uniqueWeeks.map(week => (
+                    <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Supplier Dropdown */}
+              <Select value={selectedSupplier || undefined} onValueChange={(value) => { setSelectedSupplier(value === 'all' ? '' : value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[180px] h-10 bg-background border-border">
+                  <SelectValue placeholder="Supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {uniqueSuppliers.map(supplier => (
+                    <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Pack Dropdown */}
+              <Select value={selectedPack || undefined} onValueChange={(value) => { setSelectedPack(value === 'all' ? '' : value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[160px] h-10 bg-background border-border">
+                  <SelectValue placeholder="Pack" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Packs</SelectItem>
+                  {uniquePacks.map(pack => (
+                    <SelectItem key={pack} value={pack}>{pack}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons Container */}
+        <div className="flex items-center justify-between gap-3 bg-card border border-border rounded-lg p-4 shadow-sm">
+          {/* Left side - Fruit Type Buttons - Minimalist Design */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              onClick={() => setFilterItem('ALL')}
+              className={cn(
+                "gap-2 h-10 px-3 text-sm font-medium",
+                filterItem === 'ALL'
+                  ? "bg-orange-500 hover:bg-orange-600 text-white border border-orange-500"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+            >
+              <span>All Items</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              onClick={() => setFilterItem('BANANAS')}
+              className={cn(
+                "gap-2 h-10 px-3 text-sm font-medium",
+                filterItem === 'BANANAS'
+                  ? "bg-yellow-500 hover:bg-yellow-600 text-white border border-yellow-500"
+                  : "text-muted-foreground hover:text-yellow-600 dark:hover:text-yellow-500 hover:bg-yellow-50/50 dark:hover:bg-yellow-950/10"
+              )}
+            >
+              <Banana className="w-4 h-4" />
+              <span>Bananas</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              onClick={() => setFilterItem('PINEAPPLES')}
+              className={cn(
+                "gap-2 h-10 px-3 text-sm font-medium",
+                filterItem === 'PINEAPPLES'
+                  ? "bg-orange-500 hover:bg-orange-600 text-white border border-orange-500"
+                  : "text-muted-foreground hover:text-orange-600 dark:hover:text-orange-500 hover:bg-orange-50/50 dark:hover:bg-orange-950/10"
+              )}
+            >
+              <PineappleIcon className="w-4 h-4" />
+              <span>Pineapples</span>
+            </Button>
+          </div>
+
+          {/* Right side - Action Buttons */}
+          <div className="flex items-center gap-2">
+            {!isViewer && (
+              <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
+                    <Plus className="w-4 h-4" />
+                    Add Record
+                  </Button>
+                </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="font-heading">
+                    {containerMode ? 'Add Container Records' : 'Add New Shipping Record'}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                {/* Validation Alert */}
+                {validationMessage && (
+                  <Alert 
+                    variant={validationMessage.type === 'error' ? 'destructive' : 'default'}
+                    className={cn(
+                      validationMessage.type === 'success' && 'border-green-500 bg-green-50 dark:bg-green-950',
+                      validationMessage.type === 'warning' && 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950'
+                    )}
+                  >
+                    {validationMessage.type === 'error' && <AlertCircle className="h-4 w-4" />}
+                    {validationMessage.type === 'success' && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                    {validationMessage.type === 'warning' && <AlertCircle className="h-4 w-4 text-yellow-600" />}
+                    <AlertDescription className={cn(
+                      validationMessage.type === 'success' && 'text-green-800 dark:text-green-200',
+                      validationMessage.type === 'warning' && 'text-yellow-800 dark:text-yellow-200'
+                    )}>
+                      {validationMessage.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Container Info Section - Editable when not in container mode or when unlocked in container mode */}
+                {(!containerMode || (containerMode && !containerInfoLocked)) && (
+                  <div className="grid grid-cols-2 gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Year</Label>
+                    <Select 
+                      value={newRecord.year.toString()} 
+                      onValueChange={(v) => setNewRecord({ ...newRecord, year: parseInt(v) })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 10 }, (_, i) => {
+                          const year = new Date().getFullYear() - 2 + i;
+                          return (
+                            <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Week</Label>
+                    <Select 
+                      value={newRecord.week.toString()} 
+                      onValueChange={(v) => setNewRecord({ ...newRecord, week: parseInt(v) })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 52 }, (_, i) => {
+                          const week = i + 1;
+                          return (
+                            <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ETD</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !newRecord.etdDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newRecord.etdDate ? format(newRecord.etdDate, "MM/dd/yyyy") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={newRecord.etdDate}
+                          onSelect={(date) => setNewRecord({ ...newRecord, etdDate: date })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>POL</Label>
+                    <Select value={newRecord.pol} onValueChange={(v) => setNewRecord({ ...newRecord, pol: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {pols.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Item</Label>
+                    <Select 
+                      value={newRecord.item} 
+                      onValueChange={(v) => {
+                        const newItem = v as FruitType;
+                        setNewRecord({ 
+                          ...newRecord, 
+                          item: newItem, 
+                          pack: '', // Reset pack when item changes
+                          supplier: '' // Reset supplier when item changes
+                        });
+                      }}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BANANAS">Bananas</SelectItem>
+                        <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Destination</Label>
+                    <Select value={newRecord.destination} onValueChange={(v) => setNewRecord({ ...newRecord, destination: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
+                      <SelectContent>
+                        {destinations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Supplier</Label>
+                    <Select value={newRecord.supplier} onValueChange={(v) => setNewRecord({ ...newRecord, supplier: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>S.Line</Label>
+                    <Select value={newRecord.sLine} onValueChange={(v) => setNewRecord({ ...newRecord, sLine: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {sLines.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Container</Label>
+                    <Input
+                      placeholder="XXXX1234567"
+                      value={newRecord.container}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        let filteredValue = '';
+                        
+                        if (value.length <= 4) {
+                          // First 4 characters: only letters (A-Z), no numbers
+                          filteredValue = value.replace(/[^A-Z]/g, '');
+                        } else {
+                          // First 4: letters only (A-Z), rest: integers only (0-9)
+                          const firstFour = value.substring(0, 4).replace(/[^A-Z]/g, '');
+                          const rest = value.substring(4).replace(/[^0-9]/g, ''); // Only digits after first 4
+                          filteredValue = firstFour + rest;
+                        }
+                        
+                        setNewRecord({ ...newRecord, container: filteredValue });
+                      }}
+                      maxLength={20}
+                    />
+                    {newRecord.container.length > 0 && newRecord.container.length < 4 && (
+                      <p className="text-xs text-muted-foreground">
+                        First 4 characters must be letters only (A-Z). Remaining characters must be numbers (0-9).
+                      </p>
+                    )}
+                    {newRecord.container.length >= 4 && (
+                      <p className="text-xs text-muted-foreground">
+                        Format: 4 letters + numbers (e.g., ABCD1234567)
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select 
+                      value={newRecord.type} 
+                      onValueChange={(v) => setNewRecord({ ...newRecord, type: v as 'CONTRACT' | 'SPOT' })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CONTRACT">CONTRACT</SelectItem>
+                        <SelectItem value="SPOT">SPOT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                )}
+
+
+                {/* Container Mode: Show locked container info and pack entry form */}
+                {containerMode && containerInfoLocked && (
+                  <>
+                    {/* Container Info Summary - Read Only */}
+                    <div className="bg-muted/50 rounded-lg p-4 border space-y-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-sm">Container Information</h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setContainerInfoLocked(false);
+                          }}
+                          className="h-7 text-xs"
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Year</Label>
+                          <div className="font-medium">{newRecord.year}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Week</Label>
+                          <div className="font-medium">{newRecord.week}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">ETD</Label>
+                          <div className="font-medium">{newRecord.etdDate ? format(newRecord.etdDate, 'MM/dd/yyyy') : '-'}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">POL</Label>
+                          <div className="font-medium">{newRecord.pol}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Item</Label>
+                          <div className="font-medium">{newRecord.item}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Destination</Label>
+                          <div className="font-medium">{newRecord.destination}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Supplier</Label>
+                          <div className="font-medium">{newRecord.supplier}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">S.Line</Label>
+                          <div className="font-medium">{newRecord.sLine}</div>
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs text-muted-foreground">Container</Label>
+                          <div className="font-mono font-medium">{newRecord.container}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Type</Label>
+                          <div className="font-medium">{newRecord.type}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Total Cartons Input */}
+                    <div className="space-y-2">
+                      <Label>Total Cartons in Container *</Label>
+                      <Input
+                        type="number"
+                        placeholder="Enter total cartons"
+                        value={containerTotalCartons}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? '' : parseInt(e.target.value);
+                          setContainerTotalCartons(value);
+                        }}
+                        className="font-semibold text-lg"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This is the total capacity of the container. All pack entries must sum to this value.
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Container Mode: Pack Entries Section - Only show after locking container info */}
+                {containerMode && containerInfoLocked && (
+                  <div className="space-y-4 border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">Add Pack Entries</h3>
+                      <div className="text-sm text-muted-foreground">
+                        {existingRecordsForContainer.length > 0 && (
+                          <span className="text-yellow-600 dark:text-yellow-400 mr-2">
+                            Existing: {existingCartonsTotal.toLocaleString()} + 
+                          </span>
+                        )}
+                        New: <span className="font-semibold text-foreground">{totalPackCartons.toLocaleString()}</span> / 
+                        <span className="font-semibold text-foreground"> {containerTotalCartons ? containerTotalCartons.toLocaleString() : '0'}</span> cartons
+                        {existingRecordsForContainer.length > 0 && (
+                          <span className="ml-2">
+                            (Total: <span className="font-semibold">{totalCartonsIncludingExisting.toLocaleString()}</span>)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Add Pack Entry Form - Pack and Cartons together */}
+                    <div className="grid grid-cols-3 gap-3 p-4 bg-muted/30 rounded-lg border">
+                      <div className="space-y-2 col-span-2">
+                        <Label className="text-sm font-medium">Pack & Cartons</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select 
+                            value={currentPackEntry.pack} 
+                            onValueChange={(v) => setCurrentPackEntry({ ...currentPackEntry, pack: v })}
+                          >
+                            <SelectTrigger className="h-10"><SelectValue placeholder="Select pack" /></SelectTrigger>
+                            <SelectContent>
+                              {packs.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            className="h-10"
+                            placeholder="Cartons"
+                            value={currentPackEntry.cartons || ''}
+                            onChange={(e) => setCurrentPackEntry({ ...currentPackEntry, cartons: parseInt(e.target.value) || 0 })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && currentPackEntry.pack && currentPackEntry.cartons > 0) {
+                                e.preventDefault();
+                                handleAddPackEntry();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Price ($)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-10"
+                          value={currentPackEntry.price}
+                          onChange={(e) => setCurrentPackEntry({ ...currentPackEntry, price: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="col-span-3 flex items-end">
+                        <Button 
+                          onClick={handleAddPackEntry}
+                          className="w-full h-10"
+                          disabled={!currentPackEntry.pack || !currentPackEntry.cartons || currentPackEntry.cartons <= 0 || !containerTotalCartons}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Pack Entry
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Pack Entries List */}
+                    {packEntries.length > 0 && (
+                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
+                        <div className="grid grid-cols-5 gap-2 text-xs font-semibold text-muted-foreground pb-2 border-b">
+                          <div>Pack</div>
+                          <div className="text-right">Cartons</div>
+                          <div className="text-right">L.Count</div>
+                          <div className="text-right">Price</div>
+                          <div></div>
+                        </div>
+                        {packEntries.map((entry, index) => {
+                          const loadCount = calculateLoadCount(entry.cartons);
+                          return (
+                            <div key={index} className="grid grid-cols-5 gap-2 items-center py-2 border-b last:border-0">
+                              <div className="font-medium">{entry.pack}</div>
+                              <div className="text-right">{entry.cartons.toLocaleString()}</div>
+                              <div className="text-right text-xs text-muted-foreground">{loadCount.toFixed(8)}</div>
+                              <div className="text-right">${entry.price.toFixed(2)}</div>
+                              <div className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemovePackEntry(index)}
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  {/* Show Cancel and Lock button when container mode is active but not locked */}
+                  {containerMode && !containerInfoLocked ? (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setIsOpen(false);
+                        setContainerMode(false);
+                        setContainerInfoLocked(false);
+                        setContainerTotalCartons('');
+                        setPackEntries([]);
+                      }}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleLockContainerInfo}
+                        disabled={!isContainerModeReady}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Lock Container Info
+                      </Button>
+                    </>
+                  ) : containerMode && containerInfoLocked ? (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setIsOpen(false);
+                        setContainerMode(false);
+                        setContainerInfoLocked(false);
+                        setContainerTotalCartons('');
+                        setPackEntries([]);
+                      }}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleSubmit}
+                        disabled={packEntries.length === 0 || totalCartonsIncludingExisting !== containerTotalCartons}
+                      >
+                        Add {packEntries.length} Record(s)
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => {
+                        setIsOpen(false);
+                        setContainerMode(false);
+                        setContainerInfoLocked(false);
+                        setContainerTotalCartons('');
+                        setPackEntries([]);
+                      }}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSubmit}>
+                        Add Record
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            )}
           </div>
         </div>
 
         {/* Results Summary */}
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div>
-            {(searchQuery || selectedYear || selectedWeek || selectedSupplier) ? (
+            {(searchQuery || selectedYear || selectedWeek || selectedSupplier || selectedPack) ? (
               <span>
                 Found <span className="font-semibold text-foreground">{searchedData.length}</span> of{' '}
                 <span className="font-semibold text-foreground">{itemFilteredData.length}</span> records
@@ -1279,7 +1426,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
               {paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={isViewer ? 13 : 14} className="text-center py-8 text-muted-foreground">
-                    {(searchQuery || selectedYear || selectedWeek || selectedSupplier) 
+                    {(searchQuery || selectedYear || selectedWeek || selectedSupplier || selectedPack) 
                       ? 'No records found matching your filters.' 
                       : !data || data.length === 0
                         ? 'No records available in the database.' 
@@ -1301,7 +1448,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   <TableCell>{record.sLine}</TableCell>
                   <TableCell className="font-mono text-xs">{record.container}</TableCell>
                   <TableCell>{record.pack}</TableCell>
-                  <TableCell>{record.lCont}</TableCell>
+                  <TableCell>{record.lCont.toFixed(4)}</TableCell>
                   <TableCell className="font-semibold">{record.cartons.toLocaleString()}</TableCell>
                     <TableCell>
                       <span className={cn(
