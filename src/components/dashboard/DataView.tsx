@@ -24,6 +24,7 @@ import {
 import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana, Ship, FileText, Building2, Box, DollarSign, MapPin, Truck, Hash, User, Receipt } from 'lucide-react';
 import { PineappleIcon } from './PineappleIcon';
 import ExcelJS from 'exceljs';
+import logoImage from '@/Images/AGSouth-Icon.png';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -572,7 +573,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     
     // Create a new workbook and worksheet
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Shipping Data');
+    const worksheet = workbook.addWorksheet('Shipping Database');
     
     // Set column widths
     worksheet.columns = [
@@ -604,16 +605,54 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       right: { style: 'thin' as const, color: { argb: 'FF000000' } }
     };
     
-    // Add header row with blue background, white text, and bold
+    // Add logo and title row
+    try {
+      // Fetch logo image
+      const logoResponse = await fetch(logoImage);
+      if (logoResponse.ok) {
+        const logoArrayBuffer = await logoResponse.arrayBuffer();
+        // Convert ArrayBuffer to Buffer-like object for ExcelJS
+        const logoBuffer = new Uint8Array(logoArrayBuffer);
+        const logo = workbook.addImage({
+          buffer: logoBuffer as any,
+          extension: 'png',
+        });
+        // Add logo to first row, first column
+        worksheet.addImage(logo, {
+          tl: { col: 0, row: 0 },
+          ext: { width: 80, height: 80 }
+        });
+      }
+    } catch (error) {
+      console.log('Could not load logo, continuing without logo');
+    }
+    
+    // Add title row with "Shipping Database"
+    const titleRow = worksheet.addRow(['Shipping Database']);
+    titleRow.getCell(1).font = {
+      size: 18,
+      bold: true,
+      color: { argb: 'FF0D7377' } // Primary green color (branded)
+    };
+    titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    titleRow.height = 30;
+    worksheet.mergeCells(1, 1, 1, headers.length);
+    
+    // Add empty row for spacing
+    worksheet.addRow([]);
+    
+    // Add header row with green background (branded), white text, and bold
     const headerRow = worksheet.addRow(headers);
+    headerRow.height = 25;
     headerRow.eachCell((cell, colNumber) => {
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF4472C4' } // Blue background
+        fgColor: { argb: 'FF0D7377' } // Primary green color (branded)
       };
       cell.font = {
         bold: true,
+        size: 11,
         color: { argb: 'FFFFFFFF' } // White text
       };
       cell.border = borderStyle;
@@ -651,7 +690,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     });
     
     // Generate file and download
-    const fileName = `shipping_data_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `Shipping_Database_${new Date().toISOString().split('T')[0]}.xlsx`;
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
