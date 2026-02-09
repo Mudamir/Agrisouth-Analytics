@@ -1583,217 +1583,278 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
 
       {/* Record Details Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="pb-4 border-b">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-lg",
-                selectedRecord?.item === 'BANANAS' 
-                  ? "bg-gold/10 text-gold" 
-                  : "bg-accent/10 text-accent"
-              )}>
-                {selectedRecord?.item === 'BANANAS' ? (
-                  <Banana className="h-6 w-6" />
-                ) : (
-                  <PineappleIcon className="h-6 w-6" />
-                )}
-              </div>
-              <div>
-                <DialogTitle className="text-2xl font-bold">Shipping Record Details</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedRecord?.container} • {selectedRecord?.etd}
-                </p>
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 border-0 shadow-2xl">
+          {/* Elegant Header */}
+          <DialogHeader className="px-6 pt-5 pb-4 border-b bg-gradient-to-r from-background to-muted/30 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm",
+                  selectedRecord?.item === 'BANANAS' 
+                    ? "bg-gradient-to-br from-gold/20 to-gold/10 text-gold border border-gold/20" 
+                    : "bg-gradient-to-br from-accent/20 to-accent/10 text-accent border border-accent/20"
+                )}>
+                  {selectedRecord?.item === 'BANANAS' ? (
+                    <Banana className="h-6 w-6" />
+                  ) : (
+                    <PineappleIcon className="h-6 w-6" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                    Shipping Record Details
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground mt-1 font-mono">
+                    {selectedRecord?.container} <span className="mx-2 text-muted-foreground/50">•</span> {selectedRecord?.etd}
+                  </p>
+                </div>
               </div>
             </div>
           </DialogHeader>
           
           {selectedRecord && (
-            <ScrollArea className="flex-1 pr-4 -mr-4">
-              <div className="space-y-6 py-4">
-                {/* Quick Stats Cards */}
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="bg-muted/50 rounded-lg p-4 border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase">Year / Week</span>
+            <div className="flex-1 overflow-hidden px-6 py-5 bg-gradient-to-b from-background to-muted/5">
+              <div className="h-full grid grid-cols-12 gap-5">
+                {/* Left Column - Quick Stats & Shipping Info */}
+                <div className="col-span-5 flex flex-col gap-4 overflow-y-auto pr-3 custom-scrollbar">
+                  {/* Premium Quick Stats Cards */}
+                  <div className="grid grid-cols-2 gap-3 shrink-0">
+                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Year / Week</span>
+                      </div>
+                      <p className="text-2xl font-bold text-foreground mb-0.5">{selectedRecord.year}</p>
+                      <p className="text-xs text-muted-foreground font-medium">Week {selectedRecord.week}</p>
                     </div>
-                    <p className="text-2xl font-bold">{selectedRecord.year}</p>
-                    <p className="text-sm text-muted-foreground">Week {selectedRecord.week}</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4 border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Box className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase">Cartons</span>
+                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <Box className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cartons</span>
+                      </div>
+                      <p className="text-2xl font-bold text-foreground mb-0.5">{selectedRecord.cartons.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground font-medium">L.Cont: {selectedRecord.lCont.toFixed(4)}</p>
                     </div>
-                    <p className="text-2xl font-bold">{selectedRecord.cartons.toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground">L.Cont: {selectedRecord.lCont.toFixed(4)}</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4 border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase">Price</span>
-                    </div>
-                    <p className="text-2xl font-bold">${selectedRecord.price.toFixed(2)}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <DollarSign className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Price</span>
+                      </div>
+                      <p className="text-2xl font-bold text-foreground mb-1">${selectedRecord.price.toFixed(2)}</p>
                       <span className={cn(
-                        "px-2 py-0.5 rounded text-xs font-medium",
+                        "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold",
                         selectedRecord.type === 'CONTRACT'
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" 
-                          : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                          ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20" 
+                          : "bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20"
                       )}>
                         {selectedRecord.type}
                       </span>
-                    </p>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-4 border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase">Pack</span>
                     </div>
-                    <p className="text-2xl font-bold">{selectedRecord.pack}</p>
-                    <p className="text-sm text-muted-foreground truncate">{selectedRecord.container}</p>
-                  </div>
-                </div>
-
-                {/* Main Information Grid */}
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Shipping Information */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Truck className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Shipping Information</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">ETD</p>
-                          <p className="text-sm font-semibold">{selectedRecord.etd}</p>
+                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <Package className="h-3.5 w-3.5 text-primary" />
                         </div>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pack</span>
                       </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">POL</p>
-                          <p className="text-sm font-semibold">{selectedRecord.pol}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Destination</p>
-                          <p className="text-sm font-semibold">{selectedRecord.destination}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Supplier</p>
-                          <p className="text-sm font-semibold">{selectedRecord.supplier}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <Truck className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">S.Line</p>
-                          <p className="text-sm font-semibold">{selectedRecord.sLine}</p>
-                        </div>
-                      </div>
+                      <p className="text-2xl font-bold text-foreground mb-0.5">{selectedRecord.pack}</p>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{selectedRecord.container}</p>
                     </div>
                   </div>
 
-                  {/* Container Details */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Box className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Container Details</h3>
+                  {/* Shipping Information - Refined */}
+                  <div className="shrink-0">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-border/60 mb-3">
+                      <div className="p-1.5 rounded-lg bg-primary/10">
+                        <Truck className="h-4 w-4 text-primary" />
+                      </div>
+                      <h3 className="text-base font-semibold text-foreground">Shipping Information</h3>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <Hash className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Container Number</p>
-                          <p className="text-sm font-semibold font-mono">{selectedRecord.container}</p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">ETD</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.etd}</p>
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <Package className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Pack</p>
-                          <p className="text-sm font-semibold">{selectedRecord.pack}</p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">POL</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.pol}</p>
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <Box className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Load Count</p>
-                          <p className="text-sm font-semibold">{selectedRecord.lCont.toFixed(4)}</p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Destination</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.destination}</p>
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <Box className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Cartons</p>
-                          <p className="text-sm font-semibold">{selectedRecord.cartons.toLocaleString()}</p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Supplier</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.supplier}</p>
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Price</p>
-                          <p className="text-sm font-semibold">${selectedRecord.price.toFixed(2)}</p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">S.Line</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.sLine}</p>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Invoice Information */}
-                <div className="space-y-4 border-t pt-6">
-                  <div className="flex items-center gap-2 pb-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Invoice & Billing Information</h3>
+                {/* Middle Column - Container Details */}
+                <div className="col-span-4 flex flex-col gap-4 overflow-y-auto pr-3 custom-scrollbar">
+                  <div className="shrink-0">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-border/60 mb-3">
+                      <div className="p-1.5 rounded-lg bg-primary/10">
+                        <Box className="h-4 w-4 text-primary" />
+                      </div>
+                      <h3 className="text-base font-semibold text-foreground">Container Details</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Container</p>
+                          <p className="text-sm font-semibold text-foreground font-mono truncate">{selectedRecord.container}</p>
+                        </div>
+                      </div>
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Pack</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.pack}</p>
+                        </div>
+                      </div>
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Box className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Load Count</p>
+                          <p className="text-sm font-semibold text-foreground">{selectedRecord.lCont.toFixed(4)}</p>
+                        </div>
+                      </div>
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <Box className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Cartons</p>
+                          <p className="text-sm font-semibold text-foreground">{selectedRecord.cartons.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-md bg-muted">
+                          <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Price</p>
+                          <p className="text-sm font-semibold text-foreground">${selectedRecord.price.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                      <Ship className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Vessel</p>
-                        <p className="text-base font-semibold">{selectedRecord.vessel || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                </div>
+
+                {/* Right Column - Invoice & Billing */}
+                <div className="col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                  <div className="shrink-0">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-border/60 mb-3">
+                      <div className="p-1.5 rounded-lg bg-primary/10">
+                        <FileText className="h-4 w-4 text-primary" />
                       </div>
+                      <h3 className="text-base font-semibold text-foreground">Invoice & Billing</h3>
                     </div>
-                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                      <FileText className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Invoice Number</p>
-                        <p className="text-base font-semibold">{selectedRecord.invoiceNo || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                    <div className="space-y-2">
+                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 rounded-md bg-primary/10">
+                            <Ship className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Vessel</span>
+                        </div>
+                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
+                          {selectedRecord.vessel || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                      <CalendarIcon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Invoice Date</p>
-                        <p className="text-base font-semibold">{selectedRecord.invoiceDate || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 rounded-md bg-primary/10">
+                            <FileText className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Invoice No.</span>
+                        </div>
+                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
+                          {selectedRecord.invoiceNo || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                      <Receipt className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Billing Number</p>
-                        <p className="text-base font-semibold">{selectedRecord.billingNo || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 rounded-md bg-primary/10">
+                            <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Invoice Date</span>
+                        </div>
+                        <p className="text-xs font-semibold text-foreground pl-5.5 leading-relaxed">
+                          {selectedRecord.invoiceDate || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors col-span-2">
-                      <User className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Customer Name</p>
-                        <p className="text-base font-semibold">{selectedRecord.customerName || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 rounded-md bg-primary/10">
+                            <Receipt className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Billing No.</span>
+                        </div>
+                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
+                          {selectedRecord.billingNo || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        </p>
+                      </div>
+                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 rounded-md bg-primary/10">
+                            <User className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Customer</span>
+                        </div>
+                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
+                          {selectedRecord.customerName || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           )}
         </DialogContent>
       </Dialog>
