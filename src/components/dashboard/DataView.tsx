@@ -21,13 +21,13 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana, Ship, FileText, Building2, Box, DollarSign, MapPin, Truck, Hash, User, Receipt } from 'lucide-react';
+import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana, Ship, FileText, Building2, Box, DollarSign, MapPin, Truck, Hash, User, Receipt, CalendarDays, Globe, Factory, Route, Container, Weight, ShoppingCart, CreditCard, ClipboardList, Clock, Barcode } from 'lucide-react';
 import { PineappleIcon } from './PineappleIcon';
 import ExcelJS from 'exceljs';
 import logoImage from '@/Images/AGSouth-Icon.png';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -1622,13 +1622,13 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
 
       {/* Record Details Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 border-0 shadow-2xl">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 border-0 shadow-2xl">
           {/* Elegant Header */}
           <DialogHeader className="px-6 pt-5 pb-4 border-b bg-gradient-to-r from-background to-muted/30 shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm",
+                  "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm shrink-0",
                   selectedRecord?.item === 'BANANAS' 
                     ? "bg-gradient-to-br from-gold/20 to-gold/10 text-gold border border-gold/20" 
                     : "bg-gradient-to-br from-accent/20 to-accent/10 text-accent border border-accent/20"
@@ -1639,12 +1639,19 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                     <PineappleIcon className="h-6 w-6" />
                   )}
                 </div>
-                <div className="min-w-0">
-                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
                     Shipping Record Details
                   </DialogTitle>
-                  <p className="text-sm text-muted-foreground mt-1 font-mono">
-                    {selectedRecord?.container} <span className="mx-2 text-muted-foreground/50">•</span> {selectedRecord?.etd}
+                  <p className="text-xs text-muted-foreground mt-1 font-mono truncate">
+                    {selectedRecord?.container} <span className="mx-2 text-muted-foreground/50">•</span> {selectedRecord?.etd ? (() => {
+                      try {
+                        const date = parse(selectedRecord.etd, 'yyyy-MM-dd', new Date());
+                        return format(date, 'MMMM d, yyyy');
+                      } catch {
+                        return selectedRecord.etd;
+                      }
+                    })() : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -1652,113 +1659,88 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
           </DialogHeader>
           
           {selectedRecord && (
-            <div className="flex-1 overflow-hidden px-6 py-5 bg-gradient-to-b from-background to-muted/5">
-              <div className="h-full grid grid-cols-12 gap-5">
-                {/* Left Column - Quick Stats & Shipping Info */}
-                <div className="col-span-5 flex flex-col gap-4 overflow-y-auto pr-3 custom-scrollbar">
-                  {/* Premium Quick Stats Cards */}
-                  <div className="grid grid-cols-2 gap-3 shrink-0">
-                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
+            <div className="flex-1 overflow-hidden px-4 py-3 bg-gradient-to-b from-background via-muted/5 to-background">
+              <div className="h-full grid grid-cols-12 gap-3">
+                {/* Left Column - Shipping Info */}
+                <div className="col-span-4 flex flex-col gap-0 overflow-hidden">
+                  <div className="shrink-0 flex-1 min-h-0 flex flex-col bg-card rounded-xl p-3 border border-primary/10 shadow-lg">
+                    <div className="flex items-center gap-2 pb-2.5 mb-2.5 border-b border-primary/20">
+                      <div className="p-1.5 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 shadow-sm">
+                        <Ship className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <h3 className="text-sm font-bold text-foreground">Shipping Information</h3>
+                    </div>
+                    <div className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Year</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">{selectedRecord.year}</p>
+                        </div>
+                      </div>
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Clock className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Week</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">{selectedRecord.week}</p>
+                        </div>
+                      </div>
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
                           <CalendarIcon className="h-3.5 w-3.5 text-primary" />
                         </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Year / Week</span>
-                      </div>
-                      <p className="text-2xl font-bold text-foreground mb-0.5">{selectedRecord.year}</p>
-                      <p className="text-xs text-muted-foreground font-medium">Week {selectedRecord.week}</p>
-                    </div>
-                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
-                          <Box className="h-3.5 w-3.5 text-primary" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">ETD</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">
+                            {selectedRecord.etd ? (() => {
+                              try {
+                                const date = parse(selectedRecord.etd, 'yyyy-MM-dd', new Date());
+                                return format(date, 'MMMM d, yyyy');
+                              } catch {
+                                return selectedRecord.etd;
+                              }
+                            })() : 'N/A'}
+                          </p>
                         </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cartons</span>
                       </div>
-                      <p className="text-2xl font-bold text-foreground mb-0.5">{selectedRecord.cartons.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground font-medium">L.Cont: {selectedRecord.lCont.toFixed(4)}</p>
-                    </div>
-                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
-                          <DollarSign className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Price</span>
-                      </div>
-                      <p className="text-2xl font-bold text-foreground mb-1">${selectedRecord.price.toFixed(2)}</p>
-                      <span className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold",
-                        selectedRecord.type === 'CONTRACT'
-                          ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20" 
-                          : "bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20"
-                      )}>
-                        {selectedRecord.type}
-                      </span>
-                    </div>
-                    <div className="group relative bg-gradient-to-br from-background to-muted/30 rounded-xl p-4 border border-border/50 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
-                          <Package className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pack</span>
-                      </div>
-                      <p className="text-2xl font-bold text-foreground mb-0.5">{selectedRecord.pack}</p>
-                      <p className="text-xs text-muted-foreground font-mono truncate">{selectedRecord.container}</p>
-                    </div>
-                  </div>
-
-                  {/* Shipping Information - Refined */}
-                  <div className="shrink-0">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-border/60 mb-3">
-                      <div className="p-1.5 rounded-lg bg-primary/10">
-                        <Truck className="h-4 w-4 text-primary" />
-                      </div>
-                      <h3 className="text-base font-semibold text-foreground">Shipping Information</h3>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <MapPin className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">ETD</p>
-                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.etd}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">POL</p>
+                          <p className="text-sm font-bold text-foreground leading-tight truncate">{selectedRecord.pol}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Globe className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">POL</p>
-                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.pol}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Destination</p>
+                          <p className="text-sm font-bold text-foreground leading-tight truncate">{selectedRecord.destination}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Factory className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Destination</p>
-                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.destination}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Supplier</p>
+                          <p className="text-sm font-bold text-foreground leading-tight truncate">{selectedRecord.supplier}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Truck className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Supplier</p>
-                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.supplier}</p>
-                        </div>
-                      </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">S.Line</p>
-                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.sLine}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">S.Line</p>
+                          <p className="text-sm font-bold text-foreground leading-tight truncate">{selectedRecord.sLine}</p>
                         </div>
                       </div>
                     </div>
@@ -1766,58 +1748,58 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                 </div>
 
                 {/* Middle Column - Container Details */}
-                <div className="col-span-4 flex flex-col gap-4 overflow-y-auto pr-3 custom-scrollbar">
-                  <div className="shrink-0">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-border/60 mb-3">
-                      <div className="p-1.5 rounded-lg bg-primary/10">
-                        <Box className="h-4 w-4 text-primary" />
+                <div className="col-span-4 flex flex-col gap-0 overflow-hidden">
+                  <div className="shrink-0 flex-1 min-h-0 flex flex-col bg-card rounded-xl p-3 border border-primary/10 shadow-lg">
+                    <div className="flex items-center gap-2 pb-2.5 mb-2.5 border-b border-primary/20">
+                      <div className="p-1.5 rounded-xl bg-gradient-to-br from-primary/15 to-primary/10 shadow-sm">
+                        <Container className="h-3.5 w-3.5 text-primary" />
                       </div>
-                      <h3 className="text-base font-semibold text-foreground">Container Details</h3>
+                      <h3 className="text-sm font-bold text-foreground">Container Details</h3>
                     </div>
-                    <div className="space-y-2">
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Barcode className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Container</p>
-                          <p className="text-sm font-semibold text-foreground font-mono truncate">{selectedRecord.container}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Container</p>
+                          <p className="text-sm font-bold text-foreground font-mono leading-tight break-all">{selectedRecord.container}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Package className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Pack</p>
-                          <p className="text-sm font-semibold text-foreground truncate">{selectedRecord.pack}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Pack</p>
+                          <p className="text-sm font-bold text-foreground leading-tight truncate">{selectedRecord.pack}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <Box className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <Weight className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Load Count</p>
-                          <p className="text-sm font-semibold text-foreground">{selectedRecord.lCont.toFixed(4)}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Load Count</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">{selectedRecord.lCont.toFixed(4)}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <Box className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <ShoppingCart className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Cartons</p>
-                          <p className="text-sm font-semibold text-foreground">{selectedRecord.cartons.toLocaleString()}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Cartons</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">{selectedRecord.cartons.toLocaleString()}</p>
                         </div>
                       </div>
-                      <div className="group flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="p-1.5 rounded-md bg-muted">
-                          <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <CreditCard className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Price</p>
-                          <p className="text-sm font-semibold text-foreground">${selectedRecord.price.toFixed(2)}</p>
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Price</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">${selectedRecord.price.toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -1825,68 +1807,75 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                 </div>
 
                 {/* Right Column - Invoice & Billing */}
-                <div className="col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                  <div className="shrink-0">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-border/60 mb-3">
-                      <div className="p-1.5 rounded-lg bg-primary/10">
-                        <FileText className="h-4 w-4 text-primary" />
+                <div className="col-span-4 flex flex-col gap-0 overflow-hidden">
+                  <div className="shrink-0 flex-1 min-h-0 flex flex-col bg-card rounded-xl p-3 border border-primary/10 shadow-lg">
+                    <div className="flex items-center gap-2 pb-2.5 mb-2.5 border-b border-primary/20">
+                      <div className="p-1.5 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm">
+                        <ClipboardList className="h-3.5 w-3.5 text-primary" />
                       </div>
-                      <h3 className="text-base font-semibold text-foreground">Invoice & Billing</h3>
+                      <h3 className="text-sm font-bold text-foreground">Invoice & Billing</h3>
                     </div>
-                    <div className="space-y-2">
-                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1 rounded-md bg-primary/10">
+                    <div className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                      <div className="group p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="p-1.5 rounded-lg bg-primary/15">
                             <Ship className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Vessel</span>
+                          <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">Vessel</span>
                         </div>
-                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
-                          {selectedRecord.vessel || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        <p className="text-xs font-bold text-foreground break-words pl-5.5 leading-tight">
+                          {selectedRecord.vessel || <span className="text-muted-foreground/60 italic font-normal">Not specified</span>}
                         </p>
                       </div>
-                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1 rounded-md bg-primary/10">
-                            <FileText className="h-3.5 w-3.5 text-primary" />
+                      <div className="group p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="p-1.5 rounded-lg bg-primary/15">
+                            <Barcode className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Invoice No.</span>
+                          <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">Invoice No.</span>
                         </div>
-                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
-                          {selectedRecord.invoiceNo || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        <p className="text-xs font-bold text-foreground break-words pl-5.5 leading-tight">
+                          {selectedRecord.invoiceNo || <span className="text-muted-foreground/60 italic font-normal">Not specified</span>}
                         </p>
                       </div>
-                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1 rounded-md bg-primary/10">
+                      <div className="group p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="p-1.5 rounded-lg bg-primary/15">
                             <CalendarIcon className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Invoice Date</span>
+                          <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">Invoice Date</span>
                         </div>
-                        <p className="text-xs font-semibold text-foreground pl-5.5 leading-relaxed">
-                          {selectedRecord.invoiceDate || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        <p className="text-xs font-bold text-foreground pl-5.5 leading-tight">
+                          {selectedRecord.invoiceDate ? (() => {
+                            try {
+                              const date = parse(selectedRecord.invoiceDate, 'yyyy-MM-dd', new Date());
+                              return format(date, 'MMMM d, yyyy');
+                            } catch {
+                              return selectedRecord.invoiceDate;
+                            }
+                          })() : <span className="text-muted-foreground/60 italic font-normal">Not specified</span>}
                         </p>
                       </div>
-                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1 rounded-md bg-primary/10">
+                      <div className="group p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="p-1.5 rounded-lg bg-primary/15">
                             <Receipt className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Billing No.</span>
+                          <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">Billing No.</span>
                         </div>
-                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
-                          {selectedRecord.billingNo || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        <p className="text-xs font-bold text-foreground break-words pl-5.5 leading-tight">
+                          {selectedRecord.billingNo || <span className="text-muted-foreground/60 italic font-normal">Not specified</span>}
                         </p>
                       </div>
-                      <div className="group p-3.5 rounded-lg border border-border/50 bg-gradient-to-br from-card/80 to-card/50 hover:from-card hover:to-card/80 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-1 rounded-md bg-primary/10">
+                      <div className="group p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="p-1.5 rounded-lg bg-primary/15">
                             <User className="h-3.5 w-3.5 text-primary" />
                           </div>
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Customer</span>
+                          <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">Customer</span>
                         </div>
-                        <p className="text-xs font-semibold text-foreground break-words pl-5.5 leading-relaxed">
-                          {selectedRecord.customerName || <span className="text-muted-foreground/70 italic font-normal">Not specified</span>}
+                        <p className="text-xs font-bold text-foreground break-words pl-5.5 leading-tight">
+                          {selectedRecord.customerName || <span className="text-muted-foreground/60 italic font-normal">Not specified</span>}
                         </p>
                       </div>
                     </div>
