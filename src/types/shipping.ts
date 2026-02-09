@@ -5,6 +5,7 @@ export interface ShippingRecord {
   year: number;
   week: number;
   etd: string;
+  eta?: string | null;
   pol: string;
   item: FruitType;
   destination: string;
@@ -14,7 +15,6 @@ export interface ShippingRecord {
   pack: string;
   lCont: number;
   cartons: number;
-  price: number;
   type: 'CONTRACT' | 'SPOT';
   customerName?: string | null;
   invoiceNo?: string | null;

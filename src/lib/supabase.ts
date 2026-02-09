@@ -33,6 +33,7 @@ export type DatabaseShippingRecord = {
   year: number;
   week: number;
   etd: string;
+  eta?: string | null;
   pol: string;
   item: 'BANANAS' | 'PINEAPPLES';
   destination: string;
@@ -42,7 +43,6 @@ export type DatabaseShippingRecord = {
   pack: string;
   l_cont: number;
   cartons: number;
-  price: number;
   type: 'CONTRACT' | 'SPOT';
   customer_name?: string | null;
   invoice_no?: string | null;

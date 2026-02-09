@@ -21,7 +21,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana, Ship, FileText, Building2, Box, DollarSign, MapPin, Truck, Hash, User, Receipt, CalendarDays, Globe, Factory, Route, Container, Weight, ShoppingCart, CreditCard, ClipboardList, Clock, Barcode } from 'lucide-react';
+import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana, Ship, FileText, Building2, Box, DollarSign, MapPin, Truck, Hash, User, Receipt, CalendarDays, Globe, Factory, Route, Container, Weight, ShoppingCart, CreditCard, ClipboardList, Clock, Barcode, TrendingUp } from 'lucide-react';
 import { PineappleIcon } from './PineappleIcon';
 import ExcelJS from 'exceljs';
 import logoImage from '@/Images/AGSouth-Icon.png';
@@ -73,6 +73,8 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     week: 1,
     etd: '',
     etdDate: undefined as Date | undefined,
+    eta: '',
+    etaDate: undefined as Date | undefined,
     pol: '',
     item: 'BANANAS' as FruitType,
     destination: '',
@@ -80,18 +82,20 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     sLine: '',
     container: '',
     pack: '',
-    lCont: 1,
+    lCont: 0,
     cartons: 0,
-    price: 8.65,
+    totalCartons: 0,
     type: 'CONTRACT' as 'CONTRACT' | 'SPOT',
+    vessel: '',
+    customerName: '',
+    billingNo: '',
   });
 
-  // Container mode state - for adding multiple packs to one container
-  const [containerMode, setContainerMode] = useState(false);
+  // Container locking state - for adding multiple packs to one container
   const [containerInfoLocked, setContainerInfoLocked] = useState(false);
   const [containerTotalCartons, setContainerTotalCartons] = useState<number | ''>('');
-  const [packEntries, setPackEntries] = useState<Array<{ pack: string; cartons: number; price: number }>>([]);
-  const [currentPackEntry, setCurrentPackEntry] = useState({ pack: '', cartons: 0, price: 8.65 });
+  const [packEntries, setPackEntries] = useState<Array<{ pack: string; cartons: number }>>([]);
+  const [currentPackEntry, setCurrentPackEntry] = useState({ pack: '', cartons: 0 });
 
   // Delete confirmation modal state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -168,6 +172,99 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   useEffect(() => {
     setSelectedPack('');
   }, [filterItem]);
+
+  // Function to get the latest record from the database and auto-fill all form fields
+  const handleGetLatestRecord = async () => {
+    if (!supabase) {
+      toast.error('Database not available');
+      return;
+    }
+
+    try {
+      // Get the latest record (ordered by created_at desc)
+      const { data: latestRecord, error } = await supabase
+        .from('shipping_records')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          toast.info('No records found in the database');
+          return;
+        }
+        console.error('Error fetching latest record:', error);
+        toast.error('Failed to fetch latest record');
+        return;
+      }
+
+      if (latestRecord) {
+        // Parse ETD date if it exists
+        let etdDate: Date | undefined = undefined;
+        if (latestRecord.etd) {
+          try {
+            // Try parsing MM/dd/yyyy format first
+            etdDate = parse(latestRecord.etd, 'MM/dd/yyyy', new Date());
+            // If parsing fails, try ISO format
+            if (isNaN(etdDate.getTime())) {
+              etdDate = new Date(latestRecord.etd);
+            }
+            // If still invalid, set to undefined
+            if (isNaN(etdDate.getTime())) {
+              etdDate = undefined;
+            }
+          } catch (e) {
+            etdDate = undefined;
+          }
+        }
+
+        // Parse ETA date if it exists
+        let etaDate: Date | undefined = undefined;
+        if (latestRecord.eta) {
+          try {
+            etaDate = parse(latestRecord.eta, 'MM/dd/yyyy', new Date());
+            if (isNaN(etaDate.getTime())) {
+              etaDate = new Date(latestRecord.eta);
+            }
+            if (isNaN(etaDate.getTime())) {
+              etaDate = undefined;
+            }
+          } catch (e) {
+            etaDate = undefined;
+          }
+        }
+
+        // Auto-fill all form fields with the latest record's data (except container number)
+        setNewRecord({
+          year: latestRecord.year || new Date().getFullYear(),
+          week: latestRecord.week || 1,
+          etd: latestRecord.etd || '',
+          etdDate: etdDate,
+          eta: latestRecord.eta || '',
+          etaDate: etaDate,
+          pol: latestRecord.pol || '',
+          item: (latestRecord.item as FruitType) || 'BANANAS',
+          destination: latestRecord.destination || '',
+          supplier: latestRecord.supplier || '',
+          sLine: latestRecord.s_line || '',
+          container: '', // Don't retrieve container number - user must enter it manually
+          pack: latestRecord.pack || '',
+          lCont: 0,
+          cartons: 0,
+          totalCartons: 0,
+          type: (latestRecord.type as 'CONTRACT' | 'SPOT') || 'CONTRACT',
+          vessel: latestRecord.vessel || '',
+          customerName: latestRecord.customer_name || '',
+          billingNo: latestRecord.billing_no || '',
+        });
+        toast.success('Latest record data loaded');
+      }
+    } catch (error) {
+      console.error('Error getting latest record:', error);
+      toast.error('Failed to fetch latest record');
+    }
+  };
 
   // Filter packs and suppliers based on selected item
   const packs = useMemo(() => {
@@ -257,21 +354,13 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
 
   // Validation messages
   const validationMessage = useMemo(() => {
-    if (!containerMode) return null;
-    
-    if (!containerTotalCartons || containerTotalCartons === 0) {
-      return { type: 'error' as const, message: 'Please enter the total cartons in the container' };
-    }
+    if (!containerInfoLocked) return null;
     
     if (existingRecordsForContainer.length > 0) {
       return { 
         type: 'warning' as const, 
         message: `⚠️ Found ${existingRecordsForContainer.length} existing record(s) for this container/ETD with ${existingCartonsTotal.toLocaleString()} cartons. New entries: ${totalPackCartons.toLocaleString()}. Total will be: ${totalCartonsIncludingExisting.toLocaleString()}` 
       };
-    }
-    
-    if (packEntries.length === 0) {
-      return { type: 'info' as const, message: 'Add pack entries below. Load count will be calculated automatically.' };
     }
     
     if (totalCartonsIncludingExisting > containerTotalCartons) {
@@ -290,24 +379,12 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       };
     }
     
-    return { type: 'success' as const, message: `✓ All cartons accounted for (${totalCartonsIncludingExisting.toLocaleString()} = ${containerTotalCartons.toLocaleString()})` };
-  }, [containerMode, containerTotalCartons, packEntries, totalPackCartons, existingRecordsForContainer.length, existingCartonsTotal, totalCartonsIncludingExisting]);
+    // Return null when everything is perfect - no message needed
+    return null;
+  }, [containerInfoLocked, containerTotalCartons, packEntries, totalPackCartons, existingRecordsForContainer.length, existingCartonsTotal, totalCartonsIncludingExisting]);
 
-  // Enable container mode when all required fields are filled
-  useEffect(() => {
-    if (isContainerModeReady && !containerMode) {
-      setContainerMode(true);
-      setContainerInfoLocked(false); // Don't auto-lock, user must click button
-      setContainerTotalCartons('');
-      setPackEntries([]);
-      setCurrentPackEntry({ pack: '', cartons: 0, price: 8.65 });
-    } else if (!isContainerModeReady && containerMode) {
-      setContainerMode(false);
-      setContainerInfoLocked(false);
-      setContainerTotalCartons('');
-      setPackEntries([]);
-    }
-  }, [isContainerModeReady, containerMode]);
+  // Note: Container info always needs to be locked before adding pack entries
+  // This ensures consistency and data accuracy
 
   const handleLockContainerInfo = async () => {
     if (!isContainerModeReady) {
@@ -351,6 +428,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
             year: db.year,
             week: db.week,
             etd: db.etd,
+            eta: db.eta || null,
             pol: db.pol,
             item: db.item as FruitType,
             destination: db.destination,
@@ -360,8 +438,12 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
             pack: db.pack,
             lCont: Number(db.l_cont),
             cartons: db.cartons,
-            price: Number(db.price),
             type: (db.type || 'SPOT') as 'CONTRACT' | 'SPOT',
+            customerName: db.customer_name || null,
+            invoiceNo: db.invoice_no || null,
+            invoiceDate: db.invoice_date || null,
+            vessel: db.vessel || null,
+            billingNo: db.billing_no || null,
           }));
           // Merge with local duplicates, avoiding duplicates by ID
           const existingIds = new Set(duplicates.map(d => d.id));
@@ -409,7 +491,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     }
 
     setPackEntries([...packEntries, { ...currentPackEntry }]);
-    setCurrentPackEntry({ pack: '', cartons: 0, price: 8.65 });
+    setCurrentPackEntry({ pack: '', cartons: 0 });
   };
 
   const handleRemovePackEntry = (index: number) => {
@@ -474,18 +556,174 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     return duplicates;
   };
 
+  // Function to generate or retrieve invoice number and date based on billing number (1:1 ratio)
+  const getInvoiceData = async (billingNo: string | null, item: FruitType, year: number, week: number): Promise<{ invoiceNo: string | null; invoiceDate: string | null }> => {
+    if (!billingNo || !billingNo.trim()) {
+      return { invoiceNo: null, invoiceDate: null };
+    }
+
+    if (!supabase) {
+      return { invoiceNo: null, invoiceDate: null };
+    }
+
+    try {
+      // Step 1: Check if billing number already exists in database
+      // If it exists, use the same invoice number and invoice date (1:1 ratio)
+      const { data: existingRecords, error: existingError } = await supabase
+        .from('shipping_records')
+        .select('invoice_no, invoice_date')
+        .eq('billing_no', billingNo.trim())
+        .not('invoice_no', 'is', null)
+        .limit(1);
+
+      if (existingError) {
+        console.error('Error checking for existing billing number:', existingError);
+      }
+
+      // If billing number exists, return the same invoice number and invoice date (1:1 ratio)
+      if (existingRecords && existingRecords.length > 0 && existingRecords[0].invoice_no) {
+        const existingRecord = existingRecords[0];
+        // Format invoice date if it exists (convert from database format to MM/dd/yyyy)
+        let formattedInvoiceDate: string | null = null;
+        if (existingRecord.invoice_date) {
+          try {
+            const date = new Date(existingRecord.invoice_date);
+            if (!isNaN(date.getTime())) {
+              formattedInvoiceDate = format(date, 'MM/dd/yyyy');
+            }
+          } catch (e) {
+            console.error('Error formatting existing invoice date:', e);
+          }
+        }
+        return {
+          invoiceNo: existingRecord.invoice_no,
+          invoiceDate: formattedInvoiceDate
+        };
+      }
+
+      // Step 2: Billing number is new, so get the highest last 3 digits from current week AND previous week's invoice numbers
+      const prefix = item === 'BANANAS' ? 'B' : 'P';
+      
+      // Calculate previous week
+      let previousWeek = week - 1;
+      let previousYear = year;
+      
+      // If current week is 1, go to previous year's last week (assume 52 weeks)
+      if (previousWeek < 1) {
+        previousWeek = 52;
+        previousYear = year - 1;
+      }
+      
+      // Get all invoice numbers from BOTH current week and previous week for this item type
+      // Format: B2026001, P2026001, etc. (prefix + year + 3-digit number)
+      const [currentWeekResult, previousWeekResult] = await Promise.all([
+        // Current week invoices
+        supabase
+          .from('shipping_records')
+          .select('invoice_no')
+          .eq('year', year)
+          .eq('week', week)
+          .eq('item', item)
+          .like('invoice_no', `${prefix}${year}%`)
+          .not('invoice_no', 'is', null),
+        // Previous week invoices
+        supabase
+          .from('shipping_records')
+          .select('invoice_no')
+          .eq('year', previousYear)
+          .eq('week', previousWeek)
+          .eq('item', item)
+          .like('invoice_no', `${prefix}${previousYear}%`)
+          .not('invoice_no', 'is', null)
+      ]);
+
+      if (currentWeekResult.error) {
+        console.error('Error getting invoice numbers from current week:', currentWeekResult.error);
+      }
+      if (previousWeekResult.error) {
+        console.error('Error getting invoice numbers from previous week:', previousWeekResult.error);
+      }
+
+      // Combine results from both weeks
+      const allInvoiceRecords = [
+        ...(currentWeekResult.data || []),
+        ...(previousWeekResult.data || [])
+      ];
+
+      // Extract the last 3 digits from each invoice number and find the highest
+      let highestNumber = 0;
+      if (allInvoiceRecords.length > 0) {
+        allInvoiceRecords.forEach((record) => {
+          if (record.invoice_no) {
+            // Pattern: prefix (B/P) + year (4 digits) + number (3 digits)
+            // Extract the last 3 digits (the number part)
+            // Check both current year and previous year patterns
+            const currentYearMatch = record.invoice_no.match(new RegExp(`${prefix}${year}(\\d{3})$`));
+            const previousYearMatch = record.invoice_no.match(new RegExp(`${prefix}${previousYear}(\\d{3})$`));
+            
+            const match = currentYearMatch || previousYearMatch;
+            if (match && match[1]) {
+              const number = parseInt(match[1], 10);
+              if (number > highestNumber) {
+                highestNumber = number;
+              }
+            }
+          }
+        });
+      }
+
+      // Increment the highest number by 1
+      const nextNumber = highestNumber + 1;
+
+      // Format as: B2026001, P2026001, etc. (First letter + year + 3-digit increment)
+      const newInvoiceNo = `${prefix}${year}${String(nextNumber).padStart(3, '0')}`;
+      
+      // For new billing numbers, set invoice date to today
+      const today = new Date();
+      const formattedInvoiceDate = format(today, 'MM/dd/yyyy');
+      
+      return {
+        invoiceNo: newInvoiceNo,
+        invoiceDate: formattedInvoiceDate
+      };
+    } catch (error) {
+      console.error('Error generating invoice data:', error);
+      return { invoiceNo: null, invoiceDate: null };
+    }
+  };
+
   const handleSubmit = async () => {
     if (!newRecord.etdDate) {
       toast.error('Please select an ETD date');
       return;
     }
 
-    // Format date as MM/DD/YYYY
-    const formattedDate = format(newRecord.etdDate, 'MM/dd/yyyy');
+    // Format dates as YYYY-MM-DD (ISO format for database)
+    const formattedDate = format(newRecord.etdDate, 'yyyy-MM-dd');
+    const formattedEtaDate = newRecord.etaDate ? format(newRecord.etaDate, 'yyyy-MM-dd') : null;
     const normalizedContainer = newRecord.container.trim().toUpperCase();
+    
+    // Get invoice number and invoice date based on billing number
+    // If billing number exists, reuse both invoice number and invoice date (1:1 ratio)
+    // If billing number is new, get highest invoice number from previous week and increment by 1
+    const invoiceData = await getInvoiceData(newRecord.billingNo, newRecord.item, newRecord.year, newRecord.week);
+    const invoiceNo = invoiceData.invoiceNo;
+    // Convert invoice date from MM/dd/yyyy to yyyy-MM-dd (ISO format) for database
+    let formattedInvoiceDate: string | null = null;
+    if (invoiceData.invoiceDate) {
+      try {
+        const invoiceDateParsed = parse(invoiceData.invoiceDate, 'MM/dd/yyyy', new Date());
+        if (!isNaN(invoiceDateParsed.getTime())) {
+          formattedInvoiceDate = format(invoiceDateParsed, 'yyyy-MM-dd');
+        }
+      } catch (e) {
+        console.error('Error converting invoice date format:', e);
+      }
+    }
 
-    if (containerMode) {
-      // Container mode: validate and add all pack entries
+    // Always use pack entries approach after locking
+    if (containerInfoLocked) {
+      // Validate and add all pack entries
       if (!containerTotalCartons || containerTotalCartons === 0) {
         toast.error('Please enter the total cartons in the container');
         return;
@@ -511,6 +749,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
           year: newRecord.year,
           week: newRecord.week,
           etd: formattedDate,
+          eta: formattedEtaDate,
           pol: newRecord.pol,
           item: newRecord.item,
           destination: newRecord.destination,
@@ -520,26 +759,16 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
           pack: entry.pack,
           lCont: loadCount,
           cartons: entry.cartons,
-          price: entry.price,
           type: newRecord.type,
+          vessel: newRecord.vessel || null,
+          invoiceNo: invoiceNo,
+          invoiceDate: formattedInvoiceDate,
+          customerName: newRecord.customerName || null,
+          billingNo: newRecord.billingNo || null,
         });
       });
 
       toast.success(`Successfully added ${packEntries.length} record(s) for container ${newRecord.container}`);
-    } else {
-      // Single record mode
-      if (!newRecord.supplier || !newRecord.container || !newRecord.pack || !newRecord.cartons) {
-        toast.error('Please fill in all required fields');
-        return;
-      }
-
-      onAdd({
-        ...newRecord,
-        etd: formattedDate,
-        container: normalizedContainer,
-        type: newRecord.type,
-      });
-      toast.success('Record added successfully');
     }
 
     // Reset form
@@ -549,6 +778,8 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       week: 1,
       etd: '',
       etdDate: undefined,
+      eta: '',
+      etaDate: undefined,
       pol: 'DVO',
       item: 'BANANAS',
       destination: '',
@@ -556,20 +787,22 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       sLine: 'CMA',
       container: '',
       pack: '',
-      lCont: 1,
+      lCont: 0,
       cartons: 0,
-      price: 8.65,
+      totalCartons: 0,
       type: 'CONTRACT',
+      vessel: '',
+      customerName: '',
+      billingNo: '',
     });
-    setContainerMode(false);
     setContainerInfoLocked(false);
     setContainerTotalCartons('');
     setPackEntries([]);
-    setCurrentPackEntry({ pack: '', cartons: 0, price: 8.65 });
+    setCurrentPackEntry({ pack: '', cartons: 0 });
   };
 
   const handleExport = async () => {
-    const headers = ['Year', 'Week', 'ETD', 'POL', 'Item', 'Destination', 'Supplier', 'S.Line', 'Container', 'Pack', 'L.Cont', 'Cartons', 'Price', 'Vessel', 'Invoice No.', 'Invoice Date', 'Customer Name', 'Billing No.'];
+    const headers = ['Year', 'Week', 'ETD', 'ETA', 'POL', 'Item', 'Destination', 'Supplier', 'S.Line', 'Container', 'Pack', 'L.Cont', 'Cartons', 'Vessel', 'Invoice No.', 'Invoice Date', 'Customer Name', 'Billing No.'];
     
     // Create a new workbook and worksheet
     const workbook = new ExcelJS.Workbook();
@@ -580,6 +813,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       { width: 6 },  // Year
       { width: 6 },  // Week
       { width: 12 }, // ETD
+      { width: 12 }, // ETA
       { width: 8 },  // POL
       { width: 12 }, // Item
       { width: 15 }, // Destination
@@ -589,7 +823,6 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       { width: 12 }, // Pack
       { width: 10 }, // L.Cont
       { width: 10 }, // Cartons
-      { width: 10 }, // Price
       { width: 20 }, // Vessel
       { width: 15 }, // Invoice No.
       { width: 12 }, // Invoice Date
@@ -665,6 +898,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
         record.year,
         record.week,
         record.etd,
+        record.eta || '',
         record.pol,
         record.item,
         record.destination,
@@ -674,7 +908,6 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
         record.pack,
         parseFloat(record.lCont.toFixed(4)), // Format L.Cont to 4 decimal places
         record.cartons,
-        record.price,
         record.vessel || '',
         record.invoiceNo || '',
         record.invoiceDate || '',
@@ -961,12 +1194,84 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                     Add Record
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="font-heading">
-                    {containerMode ? 'Add Container Records' : 'Add New Shipping Record'}
-                  </DialogTitle>
-                </DialogHeader>
+              <DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0 bg-gradient-to-br from-background via-background to-muted/10">
+                {/* Modern Header */}
+                <div className="relative px-6 pt-5 pb-4 border-b bg-gradient-to-r from-primary/5 to-primary/10 shrink-0">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-primary/15 backdrop-blur-sm border border-primary/20 shadow-sm">
+                        {containerInfoLocked ? (
+                          <Package className="h-5 w-5 text-primary" />
+                        ) : (
+                          <FileText className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <DialogTitle className="font-heading text-2xl font-bold tracking-tight">
+                          {containerInfoLocked ? 'Add Pack Entries' : 'New Shipping Record'}
+                        </DialogTitle>
+                        <p className="text-[11px] text-muted-foreground mt-1 font-medium tracking-wide uppercase">
+                          {containerInfoLocked 
+                            ? 'Step 2 of 2 • Container Locked'
+                            : 'Step 1 of 2 • Fill & Lock Container Details'}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Get Latest Record Button */}
+                    {!containerInfoLocked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGetLatestRecord}
+                        className="gap-2 border-primary/30 hover:bg-primary/10 hover:border-primary/50 h-9 shadow-sm transition-all"
+                        title="Load data from most recent record"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="font-semibold text-xs">Quick Fill</span>
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Progress Steps */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm",
+                      !containerInfoLocked 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-primary/20 text-primary"
+                    )}>
+                      <div className={cn(
+                        "w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold",
+                        !containerInfoLocked ? "bg-primary-foreground/20" : "bg-primary/30"
+                      )}>
+                        {containerInfoLocked ? "✓" : "1"}
+                      </div>
+                      Container
+                    </div>
+                    <div className={cn(
+                      "h-0.5 w-10 transition-all",
+                      containerInfoLocked ? "bg-primary" : "bg-border"
+                    )} />
+                    <div className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm",
+                      containerInfoLocked 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      <div className={cn(
+                        "w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold",
+                        containerInfoLocked ? "bg-primary-foreground/20" : "bg-muted-foreground/10"
+                      )}>
+                        2
+                      </div>
+                      Packs
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Scrollable Content Area */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
                 
                 {/* Validation Alert */}
                 {validationMessage && (
@@ -989,192 +1294,324 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   </Alert>
                 )}
 
-                {/* Container Info Section - Editable when not in container mode or when unlocked in container mode */}
-                {(!containerMode || (containerMode && !containerInfoLocked)) && (
-                  <div className="grid grid-cols-2 gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Year</Label>
-                    <Select 
-                      value={newRecord.year.toString()} 
-                      onValueChange={(v) => setNewRecord({ ...newRecord, year: parseInt(v) })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: new Date().getFullYear() - 2024 + 1 }, (_, i) => {
-                          const year = 2024 + i;
-                          return (
-                            <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                {/* Container Info Section - Editable when not locked */}
+                {!containerInfoLocked && (
+                  <>                  
+                  <div className="space-y-5">
+                    
+                    {/* Basic Information Section - Modern Compact Design */}
+                    <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
+                          <CalendarDays className="h-4 w-4 text-primary" />
+                        </div>
+                        <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">Basic Information</h3>
+                      </div>
+                      <div className="grid grid-cols-5 gap-3.5">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Year</Label>
+                          <Select 
+                            value={newRecord.year.toString()} 
+                            onValueChange={(v) => setNewRecord({ ...newRecord, year: parseInt(v) })}
+                          >
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: new Date().getFullYear() - 2024 + 1 }, (_, i) => {
+                                const year = 2024 + i;
+                                return (
+                                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Week</Label>
+                          <Select 
+                            value={newRecord.week.toString()} 
+                            onValueChange={(v) => setNewRecord({ ...newRecord, week: parseInt(v) })}
+                          >
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {(() => {
+                                const now = new Date();
+                                const start = new Date(now.getFullYear(), 0, 1);
+                                const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+                                const weekNumber = Math.ceil((days + start.getDay() + 1) / 7);
+                                const currentWeek = Math.min(weekNumber, 52);
+                                
+                                return Array.from({ length: currentWeek }, (_, i) => {
+                                  const week = i + 1;
+                                  return (
+                                    <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                                  );
+                                });
+                              })()}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">ETD (Departure Date)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal h-9 text-sm",
+                                  !newRecord.etdDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-3 w-3" />
+                                {newRecord.etdDate ? format(newRecord.etdDate, "MM/dd/yyyy") : <span>Pick a date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={newRecord.etdDate}
+                                onSelect={(date) => setNewRecord({ ...newRecord, etdDate: date })}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">ETA (Arrival Date)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal h-9 text-sm",
+                                  !newRecord.etaDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-3 w-3" />
+                                {newRecord.etaDate ? format(newRecord.etaDate, "MM/dd/yyyy") : <span>Pick a date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={newRecord.etaDate}
+                                onSelect={(date) => setNewRecord({ ...newRecord, etaDate: date })}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">POL (Port of Loading)</Label>
+                          <Select value={newRecord.pol} onValueChange={(v) => setNewRecord({ ...newRecord, pol: v })}>
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {pols.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Product & Logistics Section */}
+                    <div className="bg-gradient-to-br from-card via-card to-emerald-500/5 border border-border/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 border border-emerald-500/20">
+                          <Package className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">Product & Logistics</h3>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3.5">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Item Type</Label>
+                          <Select 
+                            value={newRecord.item} 
+                            onValueChange={(v) => {
+                              const newItem = v as FruitType;
+                              setNewRecord({ 
+                                ...newRecord, 
+                                item: newItem, 
+                                pack: '',
+                                supplier: ''
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="BANANAS">🍌 Bananas</SelectItem>
+                              <SelectItem value="PINEAPPLES">🍍 Pineapples</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Supplier</Label>
+                          <Select value={newRecord.supplier} onValueChange={(v) => setNewRecord({ ...newRecord, supplier: v })}>
+                            <SelectTrigger className="h-9"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                            <SelectContent>
+                              {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Type</Label>
+                          <Select 
+                            value={newRecord.type} 
+                            onValueChange={(v) => setNewRecord({ ...newRecord, type: v as 'CONTRACT' | 'SPOT' })}
+                          >
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CONTRACT">CONTRACT</SelectItem>
+                              <SelectItem value="SPOT">SPOT</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Destination</Label>
+                          <Select value={newRecord.destination} onValueChange={(v) => setNewRecord({ ...newRecord, destination: v })}>
+                            <SelectTrigger className="h-9"><SelectValue placeholder="Select destination" /></SelectTrigger>
+                            <SelectContent>
+                              {destinations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Shipping Line</Label>
+                          <Select value={newRecord.sLine} onValueChange={(v) => setNewRecord({ ...newRecord, sLine: v })}>
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {sLines.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Vessel Name</Label>
+                          <Input
+                            className="h-9"
+                            placeholder="Enter vessel name"
+                            value={newRecord.vessel}
+                            onChange={(e) => setNewRecord({ ...newRecord, vessel: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Container Details Section */}
+                    <div className="bg-gradient-to-br from-card via-card to-blue-500/5 border border-border/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/15 to-blue-500/5 border border-blue-500/20">
+                          <Box className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">Container Details</h3>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Container Number <span className="text-red-500">*</span></Label>
+                          <Input
+                            placeholder="XXXX1234567"
+                            value={newRecord.container}
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase();
+                              let filteredValue = '';
+                              
+                              if (value.length <= 4) {
+                                filteredValue = value.replace(/[^A-Z]/g, '');
+                              } else {
+                                const firstFour = value.substring(0, 4).replace(/[^A-Z]/g, '');
+                                const rest = value.substring(4).replace(/[^0-9]/g, '');
+                                filteredValue = firstFour + rest;
+                              }
+                              
+                              setNewRecord({ ...newRecord, container: filteredValue });
+                            }}
+                            maxLength={20}
+                            className="h-9 text-sm font-mono"
+                          />
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            Format: 4 letters followed by numbers (e.g., ABCD1234567)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Invoice & Billing Section */}
+                    <div className="bg-gradient-to-br from-card via-card to-violet-500/5 border border-border/60 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/15 to-violet-500/5 border border-violet-500/20">
+                          <Receipt className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">Invoice & Billing</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Customer Name</Label>
+                          <Select 
+                            value={newRecord.customerName || ''} 
+                            onValueChange={(v) => setNewRecord({ ...newRecord, customerName: v })}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Mohammed Abdallah Sharbatly Co Ltd">
+                                Mohammed Abdallah Sharbatly Co Ltd
+                              </SelectItem>
+                              <SelectItem value="Santito Brands Inc">
+                                Santito Brands Inc
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">Billing No. (BL #)</Label>
+                          <Input
+                            className="h-9"
+                            placeholder="Enter billing number"
+                            value={newRecord.billingNo}
+                            onChange={(e) => setNewRecord({ ...newRecord, billingNo: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <AlertCircle className="h-3 w-3" />
+                          <span className="font-medium">Auto-Generated Fields</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          <strong>Invoice No.</strong> and <strong>Invoice Date</strong> will be automatically generated based on your billing number and item type. If the billing number exists, we'll reuse the same invoice details (1:1 ratio).
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Week</Label>
-                    <Select 
-                      value={newRecord.week.toString()} 
-                      onValueChange={(v) => setNewRecord({ ...newRecord, week: parseInt(v) })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {(() => {
-                          // Get current week number (ISO week)
-                          const now = new Date();
-                          const start = new Date(now.getFullYear(), 0, 1);
-                          const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-                          const weekNumber = Math.ceil((days + start.getDay() + 1) / 7);
-                          const currentWeek = Math.min(weekNumber, 52); // Cap at 52 weeks
-                          
-                          return Array.from({ length: currentWeek }, (_, i) => {
-                            const week = i + 1;
-                            return (
-                              <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
-                            );
-                          });
-                        })()}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>ETD</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !newRecord.etdDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {newRecord.etdDate ? format(newRecord.etdDate, "MM/dd/yyyy") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={newRecord.etdDate}
-                          onSelect={(date) => setNewRecord({ ...newRecord, etdDate: date })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>POL</Label>
-                    <Select value={newRecord.pol} onValueChange={(v) => setNewRecord({ ...newRecord, pol: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {pols.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Item</Label>
-                    <Select 
-                      value={newRecord.item} 
-                      onValueChange={(v) => {
-                        const newItem = v as FruitType;
-                        setNewRecord({ 
-                          ...newRecord, 
-                          item: newItem, 
-                          pack: '', // Reset pack when item changes
-                          supplier: '' // Reset supplier when item changes
-                        });
-                      }}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BANANAS">Bananas</SelectItem>
-                        <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Destination</Label>
-                    <Select value={newRecord.destination} onValueChange={(v) => setNewRecord({ ...newRecord, destination: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select destination" /></SelectTrigger>
-                      <SelectContent>
-                        {destinations.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Supplier</Label>
-                    <Select value={newRecord.supplier} onValueChange={(v) => setNewRecord({ ...newRecord, supplier: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                      <SelectContent>
-                        {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>S.Line</Label>
-                    <Select value={newRecord.sLine} onValueChange={(v) => setNewRecord({ ...newRecord, sLine: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {sLines.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Container</Label>
-                    <Input
-                      placeholder="XXXX1234567"
-                      value={newRecord.container}
-                      onChange={(e) => {
-                        const value = e.target.value.toUpperCase();
-                        let filteredValue = '';
-                        
-                        if (value.length <= 4) {
-                          // First 4 characters: only letters (A-Z), no numbers
-                          filteredValue = value.replace(/[^A-Z]/g, '');
-                        } else {
-                          // First 4: letters only (A-Z), rest: integers only (0-9)
-                          const firstFour = value.substring(0, 4).replace(/[^A-Z]/g, '');
-                          const rest = value.substring(4).replace(/[^0-9]/g, ''); // Only digits after first 4
-                          filteredValue = firstFour + rest;
-                        }
-                        
-                        setNewRecord({ ...newRecord, container: filteredValue });
-                      }}
-                      maxLength={20}
-                    />
-                    {newRecord.container.length > 0 && newRecord.container.length < 4 && (
-                      <p className="text-xs text-muted-foreground">
-                        First 4 characters must be letters only (A-Z). Remaining characters must be numbers (0-9).
-                      </p>
-                    )}
-                    {newRecord.container.length >= 4 && (
-                      <p className="text-xs text-muted-foreground">
-                        Format: 4 letters + numbers (e.g., ABCD1234567)
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <Select 
-                      value={newRecord.type} 
-                      onValueChange={(v) => setNewRecord({ ...newRecord, type: v as 'CONTRACT' | 'SPOT' })}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CONTRACT">CONTRACT</SelectItem>
-                        <SelectItem value="SPOT">SPOT</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                  </>
                 )}
 
 
-                {/* Container Mode: Show locked container info and pack entry form */}
-                {containerMode && containerInfoLocked && (
+                {/* Show locked container info and pack entry form */}
+                {containerInfoLocked && (
                   <>
+                    {/* Success Banner - Container Locked */}
+                    <div className="bg-muted/30 border border-border rounded-lg p-4 mb-6">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-muted shrink-0">
+                          <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm text-foreground mb-1">
+                            Container Locked
+                          </h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            Now add pack entries below. Each entry (pack type + cartons) will create a separate database row with the same container details.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Container Info Summary - Read Only */}
-                    <div className="bg-muted/50 rounded-lg p-4 border space-y-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-sm">Container Information</h3>
+                    <div className="bg-muted/20 rounded-lg p-5 border border-border/60 space-y-4 mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Lock className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="font-bold text-sm uppercase tracking-wide text-foreground/80">Container Information</h3>
+                        </div>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1186,7 +1623,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                           Change
                         </Button>
                       </div>
-                      <div className="grid grid-cols-4 gap-3 text-sm">
+                      <div className="grid grid-cols-5 gap-3 text-sm">
                         <div>
                           <Label className="text-xs text-muted-foreground">Year</Label>
                           <div className="font-medium">{newRecord.year}</div>
@@ -1198,6 +1635,10 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                         <div>
                           <Label className="text-xs text-muted-foreground">ETD</Label>
                           <div className="font-medium">{newRecord.etdDate ? format(newRecord.etdDate, 'MM/dd/yyyy') : '-'}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">ETA</Label>
+                          <div className="font-medium">{newRecord.etaDate ? format(newRecord.etaDate, 'MM/dd/yyyy') : '-'}</div>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">POL</Label>
@@ -1227,34 +1668,62 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                           <Label className="text-xs text-muted-foreground">Type</Label>
                           <div className="font-medium">{newRecord.type}</div>
                         </div>
+                        {newRecord.vessel && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Vessel</Label>
+                            <div className="font-medium">{newRecord.vessel}</div>
+                          </div>
+                        )}
+                        {newRecord.customerName && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Customer</Label>
+                            <div className="font-medium truncate">{newRecord.customerName}</div>
+                          </div>
+                        )}
+                        {newRecord.billingNo && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Billing No.</Label>
+                            <div className="font-medium">{newRecord.billingNo}</div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Total Cartons Input */}
-                    <div className="space-y-2">
-                      <Label>Total Cartons in Container *</Label>
-                      <Input
-                        type="number"
-                        placeholder="Enter total cartons"
-                        value={containerTotalCartons}
-                        onChange={(e) => {
-                          const value = e.target.value === '' ? '' : parseInt(e.target.value);
-                          setContainerTotalCartons(value);
-                        }}
-                        className="font-semibold text-lg"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        This is the total capacity of the container. All pack entries must sum to this value.
-                      </p>
+                    {/* Total Cartons Input - Prominent */}
+                    <div className="bg-card border border-border rounded-lg p-5 mb-6">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2.5">
+                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                          <Label className="text-sm font-semibold text-foreground">
+                            Total Container Capacity *
+                          </Label>
+                        </div>
+                        <Input
+                          type="number"
+                          placeholder="Enter total cartons"
+                          value={containerTotalCartons}
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? '' : parseInt(e.target.value);
+                            setContainerTotalCartons(value);
+                          }}
+                          className="h-12 text-center font-bold text-xl border-2 focus:border-primary bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground text-center">
+                          All pack entries must sum exactly to this value
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}
 
-                {/* Container Mode: Pack Entries Section - Only show after locking container info */}
-                {containerMode && containerInfoLocked && (
-                  <div className="space-y-4 border-t pt-4 mt-4">
+                {/* Pack Entries Section - Only show after locking container info */}
+                {containerInfoLocked && (
+                  <div className="space-y-6 mt-6">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Add Pack Entries</h3>
+                      <div className="flex items-center gap-2.5">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <h3 className="font-semibold text-sm text-foreground">Pack Entries</h3>
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         {existingRecordsForContainer.length > 0 && (
                           <span className="text-yellow-600 dark:text-yellow-400 mr-2">
@@ -1271,10 +1740,10 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                       </div>
                     </div>
 
-                    {/* Add Pack Entry Form - Pack and Cartons together */}
-                    <div className="grid grid-cols-3 gap-3 p-4 bg-muted/30 rounded-lg border">
-                      <div className="space-y-2 col-span-2">
-                        <Label className="text-sm font-medium">Pack & Cartons</Label>
+                    {/* Add Pack Entry Form - Modern Design */}
+                    <div className="bg-card border border-border rounded-lg p-5">
+                      <div className="space-y-3">
+                        <Label className="text-xs font-semibold text-foreground">Add New Pack</Label>
                         <div className="grid grid-cols-2 gap-2">
                           <Select 
                             value={currentPackEntry.pack} 
@@ -1300,17 +1769,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Price ($)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-10"
-                          value={currentPackEntry.price}
-                          onChange={(e) => setCurrentPackEntry({ ...currentPackEntry, price: parseFloat(e.target.value) || 0 })}
-                        />
-                      </div>
-                      <div className="col-span-3 flex items-end">
+                      <div className="flex items-end mt-4">
                         <Button 
                           onClick={handleAddPackEntry}
                           className="w-full h-10"
@@ -1322,30 +1781,46 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                       </div>
                     </div>
 
-                    {/* Pack Entries List */}
+                    {/* Pack Entries List - Modern Cards */}
                     {packEntries.length > 0 && (
-                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
-                        <div className="grid grid-cols-5 gap-2 text-xs font-semibold text-muted-foreground pb-2 border-b">
-                          <div>Pack</div>
-                          <div className="text-right">Cartons</div>
-                          <div className="text-right">L.Count</div>
-                          <div className="text-right">Price</div>
-                          <div></div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1">
+                          <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                          <h4 className="font-semibold text-xs text-foreground">
+                            Added Packs ({packEntries.length})
+                          </h4>
                         </div>
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                         {packEntries.map((entry, index) => {
                           const loadCount = calculateLoadCount(entry.cartons);
                           return (
-                            <div key={index} className="grid grid-cols-5 gap-2 items-center py-2 border-b last:border-0">
-                              <div className="font-medium">{entry.pack}</div>
-                              <div className="text-right">{entry.cartons.toLocaleString()}</div>
-                              <div className="text-right text-xs text-muted-foreground">{loadCount.toFixed(8)}</div>
-                              <div className="text-right">${entry.price.toFixed(2)}</div>
-                              <div className="text-right">
+                            <div 
+                              key={index} 
+                              className="group bg-card border border-border rounded-lg p-3 hover:shadow-sm transition-all duration-200"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex-1 grid grid-cols-3 gap-3 items-center">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-1 h-8 rounded-full bg-border" />
+                                    <div>
+                                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Pack</div>
+                                      <div className="font-semibold text-sm">{entry.pack}</div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Cartons</div>
+                                    <div className="font-bold text-lg">{entry.cartons.toLocaleString()}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Load Count</div>
+                                    <div className="font-mono text-xs text-foreground/80">{loadCount.toFixed(4)}</div>
+                                  </div>
+                                </div>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleRemovePackEntry(index)}
-                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                   <X className="w-4 h-4" />
                                 </Button>
@@ -1353,66 +1828,67 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                             </div>
                           );
                         })}
+                        </div>
                       </div>
                     )}
                   </div>
                 )}
+                
+                </div>
+                {/* End of Scrollable Content */}
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  {/* Show Cancel and Lock button when container mode is active but not locked */}
-                  {containerMode && !containerInfoLocked ? (
-                    <>
-                      <Button variant="outline" onClick={() => {
-                        setIsOpen(false);
-                        setContainerMode(false);
-                        setContainerInfoLocked(false);
-                        setContainerTotalCartons('');
-                        setPackEntries([]);
-                      }}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleLockContainerInfo}
-                        disabled={!isContainerModeReady}
-                      >
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Lock Container Info
-                      </Button>
-                    </>
-                  ) : containerMode && containerInfoLocked ? (
-                    <>
-                      <Button variant="outline" onClick={() => {
-                        setIsOpen(false);
-                        setContainerMode(false);
-                        setContainerInfoLocked(false);
-                        setContainerTotalCartons('');
-                        setPackEntries([]);
-                      }}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleSubmit}
-                        disabled={packEntries.length === 0 || totalCartonsIncludingExisting !== containerTotalCartons}
-                      >
-                        Add {packEntries.length} Record(s)
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="outline" onClick={() => {
-                        setIsOpen(false);
-                        setContainerMode(false);
-                        setContainerInfoLocked(false);
-                        setContainerTotalCartons('');
-                        setPackEntries([]);
-                      }}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleSubmit}>
-                        Add Record
-                      </Button>
-                    </>
-                  )}
+                {/* Modern Footer with Sticky Buttons */}
+                <div className="shrink-0 border-t bg-gradient-to-r from-muted/50 to-muted/30 px-6 py-4">
+                  <div className="flex justify-end gap-3">
+                    {/* Show Cancel and Lock button when not locked, or Cancel and Add when locked */}
+                    {!containerInfoLocked ? (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setIsOpen(false);
+                            setContainerInfoLocked(false);
+                            setContainerTotalCartons('');
+                            setPackEntries([]);
+                          }}
+                          className="min-w-[100px] font-semibold"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleLockContainerInfo}
+                          disabled={!isContainerModeReady}
+                          className="min-w-[180px] gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md hover:shadow-lg transition-all font-semibold"
+                        >
+                          <Lock className="w-4 h-4" />
+                          Lock Container Info
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setIsOpen(false);
+                            setContainerInfoLocked(false);
+                            setContainerTotalCartons('');
+                            setPackEntries([]);
+                          }}
+                          className="min-w-[100px] font-semibold"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleSubmit}
+                          disabled={packEntries.length === 0 || totalCartonsIncludingExisting !== containerTotalCartons}
+                          className="min-w-[180px] gap-2 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:from-primary/90 hover:to-primary shadow-md hover:shadow-lg transition-all font-semibold"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Add {packEntries.length} Record{packEntries.length !== 1 ? 's' : ''}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -1465,6 +1941,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                 <TableHead className="text-primary-foreground">Year</TableHead>
                 <TableHead className="text-primary-foreground">Week</TableHead>
                 <TableHead className="text-primary-foreground">ETD</TableHead>
+                <TableHead className="text-primary-foreground">ETA</TableHead>
                 <TableHead className="text-primary-foreground">POL</TableHead>
                 <TableHead className="text-primary-foreground">Item</TableHead>
                 <TableHead className="text-primary-foreground">Destination</TableHead>
@@ -1487,7 +1964,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isViewer ? 18 : 19} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={isViewer ? 19 : 20} className="text-center py-8 text-muted-foreground">
                     {(searchQuery || selectedYear || selectedWeek || selectedSupplier || selectedPack) 
                       ? 'No records found matching your filters.' 
                       : !data || data.length === 0
@@ -1508,6 +1985,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   <TableCell>{record.year}</TableCell>
                   <TableCell>{record.week}</TableCell>
                   <TableCell>{record.etd}</TableCell>
+                  <TableCell>{record.eta || '-'}</TableCell>
                   <TableCell>{record.pol}</TableCell>
                   <TableCell className={record.item === 'BANANAS' ? 'text-gold font-medium' : 'text-accent font-medium'}>
                     {record.item}
@@ -1709,6 +2187,24 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                       </div>
                       <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
                         <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
+                          <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">ETA</p>
+                          <p className="text-sm font-bold text-foreground leading-tight">
+                            {selectedRecord.eta ? (() => {
+                              try {
+                                const date = parse(selectedRecord.eta, 'yyyy-MM-dd', new Date());
+                                return format(date, 'MMMM d, yyyy');
+                              } catch {
+                                return selectedRecord.eta;
+                              }
+                            })() : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
+                        <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
                           <MapPin className="h-3.5 w-3.5 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1796,10 +2292,6 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                       <div className="group flex items-start gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-muted/40 to-transparent border border-primary/10 hover:border-primary/30 hover:shadow-sm transition-all duration-200">
                         <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
                           <CreditCard className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider mb-0.5">Price</p>
-                          <p className="text-sm font-bold text-foreground leading-tight">${selectedRecord.price.toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -1985,14 +2477,6 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                       </p>
                     </div>
                   </div>
-                  {recordToDelete.price && (
-                    <div className="space-y-1 text-sm">
-                      <p className="text-xs text-muted-foreground font-medium">Price</p>
-                      <p className="font-semibold text-foreground">
-                        ${recordToDelete.price.toFixed(2)}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}

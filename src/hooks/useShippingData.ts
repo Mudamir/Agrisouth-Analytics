@@ -13,6 +13,7 @@ function transformRecord(dbRecord: DatabaseShippingRecord): ShippingRecord {
     year: dbRecord.year,
     week: dbRecord.week,
     etd: dbRecord.etd,
+    eta: dbRecord.eta || null,
     pol: dbRecord.pol,
     item: dbRecord.item,
     destination: dbRecord.destination,
@@ -22,7 +23,6 @@ function transformRecord(dbRecord: DatabaseShippingRecord): ShippingRecord {
     pack: dbRecord.pack,
     lCont: Number(dbRecord.l_cont),
     cartons: dbRecord.cartons,
-    price: Number(dbRecord.price),
     type: dbRecord.type || 'SPOT',
     customerName: dbRecord.customer_name || null,
     invoiceNo: dbRecord.invoice_no || null,
@@ -352,6 +352,13 @@ export function useShippingData() {
       // Regular add mode allows duplicates - no backend check needed
       // Database constraints will handle any actual unique constraint violations if needed
 
+      // Helper to convert empty strings to null
+      const toNullIfEmpty = (value: string | null | undefined): string | null => {
+        if (value === null || value === undefined) return null;
+        if (typeof value === 'string' && value.trim() === '') return null;
+        return value;
+      };
+
       // Insert into shipping_records
       const { data, error } = await supabase
         .from('shipping_records')
@@ -368,13 +375,47 @@ export function useShippingData() {
           pack: record.pack,
           l_cont: record.lCont,
           cartons: record.cartons,
-          price: record.price,
           type: record.type,
+          eta: toNullIfEmpty(record.eta),
+          vessel: toNullIfEmpty(record.vessel),
+          invoice_no: toNullIfEmpty(record.invoiceNo),
+          invoice_date: toNullIfEmpty(record.invoiceDate),
+          customer_name: toNullIfEmpty(record.customerName),
+          billing_no: toNullIfEmpty(record.billingNo),
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        logger.safeError('Database insert error', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          data: {
+            year: record.year,
+            week: record.week,
+            etd: record.etd,
+            pol: record.pol,
+            item: record.item,
+            destination: record.destination,
+            supplier: record.supplier,
+            s_line: record.sLine,
+            container: record.container,
+            pack: record.pack,
+            l_cont: record.lCont,
+            cartons: record.cartons,
+            type: record.type,
+            eta: record.eta,
+            vessel: record.vessel,
+            invoice_no: record.invoiceNo,
+            invoice_date: record.invoiceDate,
+            customer_name: record.customerName,
+            billing_no: record.billingNo,
+          }
+        });
+        throw error;
+      }
 
       // Note: Logging is now handled automatically by database triggers
       // No need to manually insert into data_activity_log
@@ -384,15 +425,25 @@ export function useShippingData() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shipping-records'] });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       // Handle database errors (including unique constraint violations if database has them)
       logger.safeError('Error adding record', error);
       
+      // Log full error details for debugging
+      console.error('Full error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error details:', error.details);
+      console.error('Error hint:', error.hint);
+      
       // Check if it's a unique constraint violation from database
-      if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+      if (error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
         toast.error('A record with this Container and ETD combination already exists in the database.');
+      } else if (error.message) {
+        // Show the actual error message to help debug
+        toast.error(`Failed to add record: ${error.message}`);
       } else {
-        toast.error('Failed to add record. Please try again.');
+        toast.error('Failed to add record. Please check the console for details.');
       }
     },
   });
@@ -534,3 +585,5 @@ export function useShippingData() {
     error,
   };
 }
+
+
