@@ -21,7 +21,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana } from 'lucide-react';
+import { Plus, Trash2, Download, Search, X, CalendarIcon, AlertCircle, CheckCircle2, Lock, Package, AlertTriangle, Banana, Ship, FileText, Building2, Box, DollarSign, MapPin, Truck, Hash, User, Receipt } from 'lucide-react';
 import { PineappleIcon } from './PineappleIcon';
 import ExcelJS from 'exceljs';
 import { toast } from 'sonner';
@@ -98,6 +98,8 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<ShippingRecord | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   
   const { user } = useAuth();
 
@@ -566,7 +568,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   };
 
   const handleExport = async () => {
-    const headers = ['Year', 'Week', 'ETD', 'POL', 'Item', 'Destination', 'Supplier', 'S.Line', 'Container', 'Pack', 'L.Cont', 'Cartons', 'Price', 'Type'];
+    const headers = ['Year', 'Week', 'ETD', 'POL', 'Item', 'Destination', 'Supplier', 'S.Line', 'Container', 'Pack', 'L.Cont', 'Cartons', 'Price', 'Vessel', 'Invoice No.', 'Invoice Date', 'Customer Name', 'Billing No.'];
     
     // Create a new workbook and worksheet
     const workbook = new ExcelJS.Workbook();
@@ -587,15 +589,19 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       { width: 10 }, // L.Cont
       { width: 10 }, // Cartons
       { width: 10 }, // Price
-      { width: 10 }, // Type
+      { width: 20 }, // Vessel
+      { width: 15 }, // Invoice No.
+      { width: 12 }, // Invoice Date
+      { width: 30 }, // Customer Name
+      { width: 15 }, // Billing No.
     ];
     
     // Define border style
     const borderStyle = {
-      top: { style: 'thin', color: { argb: 'FF000000' } },
-      bottom: { style: 'thin', color: { argb: 'FF000000' } },
-      left: { style: 'thin', color: { argb: 'FF000000' } },
-      right: { style: 'thin', color: { argb: 'FF000000' } }
+      top: { style: 'thin' as const, color: { argb: 'FF000000' } },
+      bottom: { style: 'thin' as const, color: { argb: 'FF000000' } },
+      left: { style: 'thin' as const, color: { argb: 'FF000000' } },
+      right: { style: 'thin' as const, color: { argb: 'FF000000' } }
     };
     
     // Add header row with blue background, white text, and bold
@@ -630,7 +636,11 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
         parseFloat(record.lCont.toFixed(4)), // Format L.Cont to 4 decimal places
         record.cartons,
         record.price,
-        record.type
+        record.vessel || '',
+        record.invoiceNo || '',
+        record.invoiceDate || '',
+        record.customerName || '',
+        record.billingNo || ''
       ]);
       
       // Add borders to all cells in the row
@@ -951,8 +961,8 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Array.from({ length: 10 }, (_, i) => {
-                          const year = new Date().getFullYear() - 2 + i;
+                        {Array.from({ length: new Date().getFullYear() - 2024 + 1 }, (_, i) => {
+                          const year = 2024 + i;
                           return (
                             <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
                           );
@@ -968,12 +978,21 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Array.from({ length: 52 }, (_, i) => {
-                          const week = i + 1;
-                          return (
-                            <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
-                          );
-                        })}
+                        {(() => {
+                          // Get current week number (ISO week)
+                          const now = new Date();
+                          const start = new Date(now.getFullYear(), 0, 1);
+                          const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+                          const weekNumber = Math.ceil((days + start.getDay() + 1) / 7);
+                          const currentWeek = Math.min(weekNumber, 52); // Cap at 52 weeks
+                          
+                          return Array.from({ length: currentWeek }, (_, i) => {
+                            const week = i + 1;
+                            return (
+                              <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                            );
+                          });
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1401,7 +1420,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
 
       <div className="flex-1 border border-border rounded-lg overflow-hidden bg-card">
         <div className="h-full overflow-auto">
-          <Table className="min-w-[1200px]">
+          <Table className="min-w-[1800px]">
               <TableHeader className="sticky top-0 bg-primary text-primary-foreground">
               <TableRow>
                 <TableHead className="text-primary-foreground">Year</TableHead>
@@ -1416,7 +1435,11 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                 <TableHead className="text-primary-foreground">Pack</TableHead>
                 <TableHead className="text-primary-foreground">L.Cont</TableHead>
                 <TableHead className="text-primary-foreground">Cartons</TableHead>
-                <TableHead className="text-primary-foreground">Type</TableHead>
+                <TableHead className="text-primary-foreground">Vessel</TableHead>
+                <TableHead className="text-primary-foreground">Invoice No.</TableHead>
+                <TableHead className="text-primary-foreground">Invoice Date</TableHead>
+                <TableHead className="text-primary-foreground">Customer Name</TableHead>
+                <TableHead className="text-primary-foreground">Billing No.</TableHead>
                 {!isViewer && (
                   <TableHead className="text-primary-foreground w-16 text-center">Actions</TableHead>
                 )}
@@ -1425,7 +1448,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isViewer ? 13 : 14} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={isViewer ? 18 : 19} className="text-center py-8 text-muted-foreground">
                     {(searchQuery || selectedYear || selectedWeek || selectedSupplier || selectedPack) 
                       ? 'No records found matching your filters.' 
                       : !data || data.length === 0
@@ -1435,7 +1458,14 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                 </TableRow>
               ) : (
                 paginatedData.map((record) => (
-                <TableRow key={record.id} className="hover:bg-muted/50">
+                <TableRow 
+                  key={record.id} 
+                  className="hover:bg-muted/50 cursor-pointer"
+                  onClick={() => {
+                    setSelectedRecord(record);
+                    setDetailDialogOpen(true);
+                  }}
+                >
                   <TableCell>{record.year}</TableCell>
                   <TableCell>{record.week}</TableCell>
                   <TableCell>{record.etd}</TableCell>
@@ -1450,18 +1480,13 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   <TableCell>{record.pack}</TableCell>
                   <TableCell>{record.lCont.toFixed(4)}</TableCell>
                   <TableCell className="font-semibold">{record.cartons.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <span className={cn(
-                        "px-2 py-1 rounded text-xs font-medium",
-                        record.type === 'CONTRACT'
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" 
-                          : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
-                      )}>
-                        {record.type}
-                      </span>
-                    </TableCell>
+                  <TableCell className="text-sm">{record.vessel || '-'}</TableCell>
+                  <TableCell className="text-sm">{record.invoiceNo || '-'}</TableCell>
+                  <TableCell className="text-sm">{record.invoiceDate || '-'}</TableCell>
+                  <TableCell className="text-sm">{record.customerName || '-'}</TableCell>
+                  <TableCell className="text-sm">{record.billingNo || '-'}</TableCell>
                   {!isViewer && (
-                    <TableCell className="text-center">
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1555,6 +1580,223 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
           </Pagination>
         </div>
       )}
+
+      {/* Record Details Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-4 border-b">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-lg",
+                selectedRecord?.item === 'BANANAS' 
+                  ? "bg-gold/10 text-gold" 
+                  : "bg-accent/10 text-accent"
+              )}>
+                {selectedRecord?.item === 'BANANAS' ? (
+                  <Banana className="h-6 w-6" />
+                ) : (
+                  <PineappleIcon className="h-6 w-6" />
+                )}
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold">Shipping Record Details</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {selectedRecord?.container} • {selectedRecord?.etd}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          {selectedRecord && (
+            <ScrollArea className="flex-1 pr-4 -mr-4">
+              <div className="space-y-6 py-4">
+                {/* Quick Stats Cards */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="bg-muted/50 rounded-lg p-4 border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Year / Week</span>
+                    </div>
+                    <p className="text-2xl font-bold">{selectedRecord.year}</p>
+                    <p className="text-sm text-muted-foreground">Week {selectedRecord.week}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4 border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Box className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Cartons</span>
+                    </div>
+                    <p className="text-2xl font-bold">{selectedRecord.cartons.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">L.Cont: {selectedRecord.lCont.toFixed(4)}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4 border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Price</span>
+                    </div>
+                    <p className="text-2xl font-bold">${selectedRecord.price.toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-xs font-medium",
+                        selectedRecord.type === 'CONTRACT'
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" 
+                          : "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+                      )}>
+                        {selectedRecord.type}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4 border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase">Pack</span>
+                    </div>
+                    <p className="text-2xl font-bold">{selectedRecord.pack}</p>
+                    <p className="text-sm text-muted-foreground truncate">{selectedRecord.container}</p>
+                  </div>
+                </div>
+
+                {/* Main Information Grid */}
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Shipping Information */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Truck className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Shipping Information</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">ETD</p>
+                          <p className="text-sm font-semibold">{selectedRecord.etd}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">POL</p>
+                          <p className="text-sm font-semibold">{selectedRecord.pol}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Destination</p>
+                          <p className="text-sm font-semibold">{selectedRecord.destination}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Supplier</p>
+                          <p className="text-sm font-semibold">{selectedRecord.supplier}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <Truck className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">S.Line</p>
+                          <p className="text-sm font-semibold">{selectedRecord.sLine}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Container Details */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Box className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Container Details</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <Hash className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Container Number</p>
+                          <p className="text-sm font-semibold font-mono">{selectedRecord.container}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <Package className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Pack</p>
+                          <p className="text-sm font-semibold">{selectedRecord.pack}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <Box className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Load Count</p>
+                          <p className="text-sm font-semibold">{selectedRecord.lCont.toFixed(4)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <Box className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Cartons</p>
+                          <p className="text-sm font-semibold">{selectedRecord.cartons.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-muted-foreground mb-0.5">Price</p>
+                          <p className="text-sm font-semibold">${selectedRecord.price.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Invoice Information */}
+                <div className="space-y-4 border-t pt-6">
+                  <div className="flex items-center gap-2 pb-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Invoice & Billing Information</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                      <Ship className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Vessel</p>
+                        <p className="text-base font-semibold">{selectedRecord.vessel || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                      <FileText className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Invoice Number</p>
+                        <p className="text-base font-semibold">{selectedRecord.invoiceNo || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                      <CalendarIcon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Invoice Date</p>
+                        <p className="text-base font-semibold">{selectedRecord.invoiceDate || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                      <Receipt className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Billing Number</p>
+                        <p className="text-base font-semibold">{selectedRecord.billingNo || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors col-span-2">
+                      <User className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Customer Name</p>
+                        <p className="text-base font-semibold">{selectedRecord.customerName || <span className="text-muted-foreground italic">Not specified</span>}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Modal with Password */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {

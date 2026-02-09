@@ -24,6 +24,11 @@ function transformRecord(dbRecord: DatabaseShippingRecord): ShippingRecord {
     cartons: dbRecord.cartons,
     price: Number(dbRecord.price),
     type: dbRecord.type || 'SPOT',
+    customerName: dbRecord.customer_name || null,
+    invoiceNo: dbRecord.invoice_no || null,
+    invoiceDate: dbRecord.invoice_date || null,
+    vessel: dbRecord.vessel || null,
+    billingNo: dbRecord.billing_no || null,
   };
 }
 

@@ -44,6 +44,11 @@ export type DatabaseShippingRecord = {
   cartons: number;
   price: number;
   type: 'CONTRACT' | 'SPOT';
+  customer_name?: string | null;
+  invoice_no?: string | null;
+  invoice_date?: string | null;
+  vessel?: string | null;
+  billing_no?: string | null;
   created_at: string;
   updated_at: string;
 };

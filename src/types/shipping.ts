@@ -16,6 +16,11 @@ export interface ShippingRecord {
   cartons: number;
   price: number;
   type: 'CONTRACT' | 'SPOT';
+  customerName?: string | null;
+  invoiceNo?: string | null;
+  invoiceDate?: string | null;
+  vessel?: string | null;
+  billingNo?: string | null;
 }
 
 export interface FilterState {

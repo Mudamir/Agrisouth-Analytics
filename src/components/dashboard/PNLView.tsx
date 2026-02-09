@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { CartonsSection } from './pnl/CartonsSection';
 import { SalesSection } from './pnl/SalesSection';
 import { PurchaseSection } from './pnl/PurchaseSection';
@@ -11,6 +12,8 @@ import { ProfitSection } from './pnl/ProfitSection';
 import { PriceManagement } from './pnl/PriceManagement';
 import { StatCard } from './StatCard';
 import { cn } from '@/lib/utils';
+import { Banana } from 'lucide-react';
+import { PineappleIcon } from './PineappleIcon';
 
 interface PNLViewProps {
   data: ShippingRecord[];
@@ -35,6 +38,7 @@ export interface PackData {
 
 export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
   const [selectedYear, setSelectedYear] = useState<number | 'ALL'>('ALL');
+  const [selectedWeek, setSelectedWeek] = useState<number | 'ALL'>('ALL');
   const [priceConfig, setPriceConfig] = useState<Map<string, { sales: number; purchase: number }>>(new Map());
   const [salesPriceMap, setSalesPriceMap] = useState<Map<string, number>>(new Map()); // Direct access to uniform sales prices by pack (BANANAS)
   const [salesPricesByPackSupplier, setSalesPricesByPackSupplier] = useState<Map<string, number>>(new Map()); // Direct access to supplier-specific sales prices by "pack|supplier" (PINEAPPLES)
@@ -45,14 +49,30 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
   const [dataReady, setDataReady] = useState(false); // Track when data is ready after delay
   const [loadingProgress, setLoadingProgress] = useState(0); // Track loading progress
 
-  // Get unique years from data for selected fruit type
+  // Get years from 2024 to current year only
   const years = useMemo(() => {
-    const fruitData = data.filter(r => r.item === selectedFruit);
-    const uniqueYears = Array.from(new Set(fruitData.map(r => r.year))).sort((a, b) => b - a);
-    return uniqueYears;
-  }, [data, selectedFruit]);
+    const currentYear = new Date().getFullYear();
+    const startYear = 2024;
+    // Generate array from 2024 to current year, sorted descending (newest first)
+    return Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i).reverse();
+  }, []); // No dependencies - only depends on current date
 
-  // Clear loading state when year/fruit changes
+  // Get unique weeks from data for selected fruit type and year
+  const weeks = useMemo(() => {
+    let fruitData = data.filter(r => r.item === selectedFruit);
+    if (selectedYear !== 'ALL') {
+      fruitData = fruitData.filter(r => r.year === selectedYear);
+    }
+    const uniqueWeeks = Array.from(new Set(fruitData.map(r => r.week))).sort((a, b) => a - b);
+    return uniqueWeeks;
+  }, [data, selectedFruit, selectedYear]);
+
+  // Reset week when year or fruit changes
+  useEffect(() => {
+    setSelectedWeek('ALL');
+  }, [selectedYear, selectedFruit]);
+
+  // Clear loading state when year/fruit changes (not week - week doesn't affect prices)
   useEffect(() => {
     setIsLoadingPrices(true);
     setDataReady(false);
@@ -66,8 +86,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         if (!supabase) {
           setIsLoadingPrices(false);
           setLoadingProgress(100);
-          // Still wait 1 second before showing data
-          setTimeout(() => setDataReady(true), 1000);
+          setDataReady(true);
           return;
         }
         
@@ -195,42 +214,14 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
 
         setPriceConfig(combinedMap);
         setIsLoadingPrices(false);
-        
-        // Simulate progress for better UX
-        setLoadingProgress(50);
-        
-        // Wait 1 second before showing final data to ensure accuracy
-        // Show progress during this time
-        const progressInterval = setInterval(() => {
-          setLoadingProgress(prev => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
-        }, 100);
-        
-        const timer = setTimeout(() => {
-          setLoadingProgress(100);
-          clearInterval(progressInterval);
-          setDataReady(true);
-        }, 1000);
-        
-        return () => {
-          clearTimeout(timer);
-          clearInterval(progressInterval);
-        };
+        setLoadingProgress(100);
+        // Show data immediately after prices are loaded
+        setDataReady(true);
       } catch (error) {
         console.error('Error loading prices:', error);
         setIsLoadingPrices(false);
         setLoadingProgress(100);
-        // Even on error, wait 1 second before showing data
-        const timer = setTimeout(() => {
-          setDataReady(true);
-        }, 1000);
-        
-        return () => clearTimeout(timer);
+        setDataReady(true);
       }
     };
 
@@ -243,8 +234,11 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     if (selectedYear !== 'ALL') {
       filtered = filtered.filter(r => r.year === selectedYear);
     }
+    if (selectedWeek !== 'ALL') {
+      filtered = filtered.filter(r => r.week === selectedWeek);
+    }
     return filtered;
-  }, [data, selectedFruit, selectedYear]);
+  }, [data, selectedFruit, selectedYear, selectedWeek]);
 
   // Get unique packs and suppliers from filtered data (for price management)
   const uniquePacks = useMemo(() => {
@@ -410,45 +404,78 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           />
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="fruit-filter" className="text-sm">
-              Product:
-            </Label>
-            <Select
-              value={selectedFruit}
-              onValueChange={(v) => onSelectFruit(v as FruitType)}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BANANAS">Bananas</SelectItem>
-                <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Label htmlFor="year-filter" className="text-sm">
-              Year:
-            </Label>
-            <Select
-              value={selectedYear === 'ALL' ? 'ALL' : selectedYear.toString()}
-              onValueChange={(v) => setSelectedYear(v === 'ALL' ? 'ALL' : parseInt(v))}
-            >
-              <SelectTrigger className="w-28">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Years</SelectItem>
-                {years.map(year => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Filter Section - Matching DataView Design */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3 bg-card border border-border rounded-lg p-4 shadow-sm">
+            {/* Product Type Buttons */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                onClick={() => onSelectFruit('BANANAS')}
+                className={cn(
+                  "gap-2 h-10 px-3 text-sm font-medium",
+                  selectedFruit === 'BANANAS'
+                    ? "bg-yellow-500 hover:bg-yellow-600 text-white border border-yellow-500"
+                    : "text-muted-foreground hover:text-yellow-600 dark:hover:text-yellow-500 hover:bg-yellow-50/50 dark:hover:bg-yellow-950/10"
+                )}
+              >
+                <Banana className="w-4 h-4" />
+                <span>Bananas</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                onClick={() => onSelectFruit('PINEAPPLES')}
+                className={cn(
+                  "gap-2 h-10 px-3 text-sm font-medium",
+                  selectedFruit === 'PINEAPPLES'
+                    ? "bg-orange-500 hover:bg-orange-600 text-white border border-orange-500"
+                    : "text-muted-foreground hover:text-orange-600 dark:hover:text-orange-500 hover:bg-orange-50/50 dark:hover:bg-orange-950/10"
+                )}
+              >
+                <PineappleIcon className="w-4 h-4" />
+                <span>Pineapples</span>
+              </Button>
+            </div>
+
+            {/* Filter Dropdowns */}
+            <div className="flex items-center gap-2">
+              {/* Year Dropdown */}
+              <Select
+                value={selectedYear === 'ALL' ? 'ALL' : selectedYear.toString()}
+                onValueChange={(v) => setSelectedYear(v === 'ALL' ? 'ALL' : parseInt(v))}
+              >
+                <SelectTrigger className="w-[130px] h-10 bg-background border-border">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Years</SelectItem>
+                  {years.map(year => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Week Dropdown */}
+              <Select
+                value={selectedWeek === 'ALL' ? 'ALL' : selectedWeek.toString()}
+                onValueChange={(v) => setSelectedWeek(v === 'ALL' ? 'ALL' : parseInt(v))}
+              >
+                <SelectTrigger className="w-[130px] h-10 bg-background border-border">
+                  <SelectValue placeholder="Week" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Weeks</SelectItem>
+                  {weeks.map(week => (
+                    <SelectItem key={week} value={week.toString()}>
+                      Week {week}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </div>
