@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Shield, User, Mail, Calendar, CheckCircle, XCircle, Activity, Grid3x3 } from 'lucide-react';
+import { Shield, User, Mail, Calendar, CheckCircle, XCircle, Activity, Grid3x3, Clock, Users2, UserCheck, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -86,15 +86,15 @@ export function UserManagement() {
   const getRoleBadgeColor = (role: UserProfile['role']) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800/50';
       case 'manager':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50';
       case 'user':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50';
       case 'viewer':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-800/40 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800/40 dark:text-gray-300 border border-gray-200 dark:border-gray-700/50';
     }
   };
 
@@ -172,38 +172,47 @@ export function UserManagement() {
         </TabsContent>
 
         <TabsContent value="list" className="mt-6 space-y-6">
-          {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Users</p>
-              <p className="text-2xl font-bold mt-1">{stats.total}</p>
+          {/* Premium Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="group relative bg-gradient-to-br from-card to-card/80 rounded-2xl border border-border/60 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Total Users</p>
+                  <p className="text-4xl font-bold text-foreground">{stats.total}</p>
+                </div>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center shadow-md">
+                  <Users2 className="w-7 h-7 text-primary" />
+                </div>
+              </div>
             </div>
-            <User className="w-8 h-8 text-muted-foreground" />
-          </div>
-        </div>
-        
-        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Active Users</p>
-              <p className="text-2xl font-bold mt-1 text-green-600">{stats.active}</p>
+            
+            <div className="group relative bg-gradient-to-br from-emerald-50/50 dark:from-emerald-950/20 to-card rounded-2xl border border-emerald-500/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Active Users</p>
+                  <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</p>
+                </div>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-md">
+                  <UserCheck className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+                </div>
+              </div>
             </div>
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-        </div>
-        
-        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Recently Active</p>
-              <p className="text-2xl font-bold mt-1 text-blue-600">{stats.recentlyActive}</p>
+            
+            <div className="group relative bg-gradient-to-br from-blue-50/50 dark:from-blue-950/20 to-card rounded-2xl border border-blue-500/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Recently Active</p>
+                  <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{stats.recentlyActive}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
+                </div>
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 border border-blue-500/30 flex items-center justify-center shadow-md">
+                  <Activity className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
             </div>
-            <Activity className="w-8 h-8 text-blue-600" />
-          </div>
-            <p className="text-xs text-muted-foreground mt-2">Last 24 hours</p>
-          </div>
           </div>
 
           {error && (
@@ -212,73 +221,141 @@ export function UserManagement() {
             </div>
           )}
 
-          <div className="bg-card rounded-lg border border-border shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last Login</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">
-                      {user.full_name || 'No name'}
-                    </span>
-                    {user.id === currentUser?.id && (
-                      <Badge variant="outline" className="text-xs">You</Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">{user.email}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge className={cn(getRoleBadgeColor(user.role))}>
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {user.is_active && isCurrentlyActive(user.last_login) ? (
-                      <>
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-green-600 font-medium">Active</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-4 h-4 text-red-600" />
-                        <span className="text-sm text-red-600">Inactive</span>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {user.last_login ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span title={formatLastLoginGMT8(user.last_login)}>
-                        {formatLastLoginGMT8(user.last_login)}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Never</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            </TableBody>
-          </Table>
+          {/* Premium User Table */}
+          <div className="bg-card rounded-2xl border border-border/50 shadow-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80 border-b-2 border-border/60 hover:bg-muted/80">
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-bold text-foreground tracking-wide">User</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-bold text-foreground tracking-wide">Email</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-bold text-foreground tracking-wide">Role</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-bold text-foreground tracking-wide">Status</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-bold text-foreground tracking-wide">Last Login</span>
+                      </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user, index) => {
+                    const isActive = user.is_active && isCurrentlyActive(user.last_login);
+                    const isCurrentUser = user.id === currentUser?.id;
+                    
+                    return (
+                      <TableRow 
+                        key={user.id}
+                        className={cn(
+                          "hover:bg-muted/40 transition-all duration-200 border-b border-border/30 group",
+                          index % 2 === 0 ? "bg-card" : "bg-muted/20",
+                          isCurrentUser && "bg-primary/5 border-l-4 border-l-primary"
+                        )}
+                      >
+                        <TableCell className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border-2 shadow-md group-hover:shadow-lg transition-shadow",
+                              isCurrentUser 
+                                ? "bg-gradient-to-br from-primary/30 via-primary/20 to-primary/10 border-primary/40"
+                                : "bg-gradient-to-br from-primary/20 via-primary/15 to-secondary/15 border-primary/30"
+                            )}>
+                              <span className={cn(
+                                "text-base font-bold",
+                                isCurrentUser ? "text-primary" : "text-primary"
+                              )}>
+                                {(user.full_name || user.email).charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm text-foreground truncate">
+                                  {user.full_name || 'No name'}
+                                </span>
+                                {isCurrentUser && (
+                                  <Badge variant="outline" className="text-xs font-semibold border-primary/30 text-primary px-2 py-0.5">
+                                    You
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-muted-foreground/60" />
+                            <span className="text-sm text-foreground truncate max-w-[250px]" title={user.email}>
+                              {user.email}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
+                          <Badge 
+                            className={cn(
+                              "font-semibold px-3 py-1 text-xs",
+                              getRoleBadgeColor(user.role)
+                            )}
+                          >
+                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {isActive ? (
+                              <>
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Active</span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-2 h-2 rounded-full bg-red-500" />
+                                <span className="text-sm font-medium text-red-600 dark:text-red-400">Inactive</span>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-4">
+                          {user.last_login ? (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="w-4 h-4 text-muted-foreground/60" />
+                              <span 
+                                className="text-foreground/80 font-medium"
+                                title={formatLastLoginGMT8(user.last_login)}
+                              >
+                                {formatLastLoginGMT8(user.last_login)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground italic">Never logged in</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">

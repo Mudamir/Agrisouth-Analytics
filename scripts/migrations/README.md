@@ -19,6 +19,23 @@ supabase db push
 
 ## Available Migrations
 
+### `add-generate-permission.sql`
+
+**Date:** 2026-02-10
+
+**Description:** Adds the `page.generate` permission to control access to the Generate page.
+
+**What it does:**
+- Creates the `page.generate` permission in the `permissions` table
+- Grants this permission to `admin` role by default
+- Grants this permission to `manager` role by default (same as data access)
+
+**Usage:**
+```sql
+-- Run this migration to enable Generate page access management
+-- After running, admins can control Generate page access in User Management
+```
+
 ### `add-invoice-columns.sql`
 
 **Date:** 2026-02-03

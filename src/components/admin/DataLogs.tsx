@@ -19,9 +19,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Database, User, Package, Calendar, RefreshCw, TrendingUp } from 'lucide-react';
+import { Database, User, Package, Calendar, RefreshCw, TrendingUp, Plus, Minus, Edit, Clock, Activity, Shield, Apple } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 interface DatabaseUpdateLog {
   id: string;
@@ -32,7 +41,7 @@ interface DatabaseUpdateLog {
   pack: string;
   container: string;
   cartons: number;
-  etd: string;
+  item: string;
   added_at: string;
   action: 'ADDED' | 'DELETED' | 'UPDATED';
 }
@@ -43,6 +52,9 @@ export function DataLogs() {
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [logsError, setLogsError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 50;
 
   useEffect(() => {
     // Check if user has permission to view this page
@@ -89,7 +101,7 @@ export function DataLogs() {
         supabase.removeChannel(activityChannel);
       }
     };
-  }, [canAccessPage]);
+  }, [canAccessPage, currentPage]);
 
   async function loadUpdateLogs(silent = false) {
     try {
@@ -104,14 +116,26 @@ export function DataLogs() {
         return;
       }
 
-      // Fetch from unified data_activity_log table
+      // Fetch total count first
+      const { count: totalCountResult } = await supabase
+        .from('data_activity_log')
+        .select('*', { count: 'exact', head: true });
+      
+      setTotalCount(totalCountResult || 0);
+
+      // Calculate pagination range
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      // Fetch from unified data_activity_log table with pagination
       // IMPORTANT: Fetch ALL logs for ALL users - no user filtering
       // All users with Data Logs access should see the same activity logs
+      // Always fetch fresh data (no cache) by using a unique query each time
       const { data: activityLogs, error: activityError } = await supabase
         .from('data_activity_log')
         .select('*')
         .order('action_timestamp', { ascending: false })
-        .limit(100); // Increased limit to show more recent activity
+        .range(from, to);
 
       if (activityError) {
         // Check if table doesn't exist (migration needed)
@@ -169,14 +193,19 @@ export function DataLogs() {
             pack: log.pack || snapshot.pack || 'N/A',
             container: log.container || snapshot.container || 'N/A',
             cartons: log.cartons || snapshot.cartons || 0,
-            etd: log.etd || snapshot.etd || 'N/A',
+            item: log.item || snapshot.item || 'N/A',
             added_at: log.action_timestamp,
             action: log.action === 'INSERT' ? 'ADDED' : log.action === 'DELETE' ? 'DELETED' : 'UPDATED',
           };
         })
-        .filter(log => log.container !== 'N/A'); // Only show logs with valid container info
+        // Show all logs, even if some fields are missing
+        .sort((a, b) => {
+          // Ensure logs are sorted by timestamp (newest first) as a fallback
+          return new Date(b.added_at).getTime() - new Date(a.added_at).getTime();
+        });
 
-      setUpdateLogs(formattedLogs);
+      // Always update state to trigger re-render with latest data
+      setUpdateLogs([...formattedLogs]);
     } catch (err: any) {
       console.error('Error loading activity logs:', err);
       setLogsError('An error occurred while loading database activity logs');
@@ -219,80 +248,93 @@ export function DataLogs() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Premium Header Design */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-heading">Data Logs</h1>
-          <p className="text-muted-foreground mt-1">
-            Track who last updated the database and what they added or deleted
-            <span className="ml-2 text-xs text-muted-foreground/70">(Auto-refreshes every 15 seconds)</span>
-          </p>
+        <div className="space-y-2">
+          <div>
+            <h1 className="text-3xl font-bold font-heading text-foreground tracking-tight">Data Logs</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Track database updates and user activity
+              <span className="ml-2 text-xs text-muted-foreground/70">(Auto-refreshes every 15 seconds)</span>
+            </p>
+          </div>
         </div>
-        <Badge variant="outline" className="text-sm">
-          <Database className="w-4 h-4 mr-1" />
+        <Badge variant="outline" className="text-sm border-border/60">
+          <Shield className="w-4 h-4 mr-1" />
           {currentUser?.role === 'admin' ? 'Admin Only' : 'Manager Access'}
         </Badge>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Updates</p>
-              <p className="text-2xl font-bold mt-1 text-blue-600">{updatesLast24Hours}</p>
+      {/* Premium Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="group relative bg-gradient-to-br from-blue-50/50 dark:from-blue-950/20 to-card rounded-2xl border border-blue-500/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Total Updates</p>
+              <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{updatesLast24Hours}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
             </div>
-            <TrendingUp className="w-8 h-8 text-blue-600" />
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10 border border-blue-500/30 flex items-center justify-center shadow-md">
+              <TrendingUp className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Last 24 hours</p>
         </div>
         
-        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Additions</p>
-              <p className="text-2xl font-bold mt-1 text-green-600">{additionsLast24Hours}</p>
+        <div className="group relative bg-gradient-to-br from-emerald-50/50 dark:from-emerald-950/20 to-card rounded-2xl border border-emerald-500/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Additions</p>
+              <p className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">{additionsLast24Hours}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
             </div>
-            <Database className="w-8 h-8 text-green-600" />
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-md">
+              <Plus className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Last 24 hours</p>
         </div>
         
-        <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Deletions</p>
-              <p className="text-2xl font-bold mt-1 text-red-600">{deletionsLast24Hours}</p>
+        <div className="group relative bg-gradient-to-br from-red-50/50 dark:from-red-950/20 to-card rounded-2xl border border-red-500/20 p-6 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Deletions</p>
+              <p className="text-4xl font-bold text-red-600 dark:text-red-400">{deletionsLast24Hours}</p>
+              <p className="text-xs text-muted-foreground mt-1">Last 24 hours</p>
             </div>
-            <Database className="w-8 h-8 text-red-600" />
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500/20 to-red-500/10 border border-red-500/30 flex items-center justify-center shadow-md">
+              <Minus className="w-7 h-7 text-red-600 dark:text-red-400" />
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Last 24 hours</p>
         </div>
       </div>
 
+      {/* Table Section Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold font-heading">Recent Database Updates</h2>
-          <p className="text-muted-foreground mt-1">
-            Track who last updated the database and what they added or deleted
-            <span className="ml-2 text-xs text-muted-foreground/70">(Auto-refreshes every 15 seconds)</span>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold font-heading text-foreground tracking-tight">Recent Activity</h2>
+          <p className="text-sm text-muted-foreground">
+            Complete audit trail of all database changes
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              setRefreshing(true);
-              await loadUpdateLogs(false); // Full refresh with loading indicator
-              setRefreshing(false);
-            }}
-            disabled={refreshing || loadingLogs}
-            className="gap-2"
-          >
-            <RefreshCw className={cn("w-4 h-4", (refreshing || loadingLogs) && "animate-spin")} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            setRefreshing(true);
+            // Reset to page 1 and force a full refresh
+            setCurrentPage(1);
+            setUpdateLogs([]);
+            await loadUpdateLogs(false);
+            setRefreshing(false);
+          }}
+          disabled={refreshing || loadingLogs}
+          className="gap-2 hover:bg-primary hover:text-primary-foreground transition-all duration-200 shadow-sm"
+        >
+          <RefreshCw className={cn("w-4 h-4", (refreshing || loadingLogs) && "animate-spin")} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
       </div>
 
       {logsError && (
@@ -307,94 +349,254 @@ export function DataLogs() {
         </div>
       )}
 
-      <div className="bg-card rounded-lg border border-border shadow-sm">
+      {/* Premium Table Design */}
+      <div className="bg-card rounded-2xl border border-border/50 shadow-xl overflow-hidden">
         {loadingLogs ? (
-          <div className="flex items-center justify-center p-8">
+          <div className="flex items-center justify-center p-12">
             <div className="text-center space-y-4">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-muted-foreground text-sm">Loading update logs...</p>
+              <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-muted-foreground text-sm font-medium">Loading activity logs...</p>
             </div>
           </div>
         ) : logsError && logsError.includes('not found') ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="font-semibold mb-2">Activity Log Table Not Found</p>
-            <p className="text-sm">Please run the migration script: create-data-activity-log-table.sql in Supabase to track database updates.</p>
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 rounded-xl bg-muted/40 flex items-center justify-center mx-auto mb-4">
+              <Database className="w-8 h-8 text-muted-foreground/60" />
+            </div>
+            <p className="font-semibold text-foreground mb-2">Activity Log Table Not Found</p>
+            <p className="text-sm text-muted-foreground">Please run the migration script: create-data-activity-log-table.sql in Supabase to track database updates.</p>
           </div>
         ) : updateLogs.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No database updates logged yet.</p>
-            <p className="text-sm mt-2">Updates will appear here once users start adding records.</p>
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 rounded-xl bg-muted/40 flex items-center justify-center mx-auto mb-4">
+              <Database className="w-8 h-8 text-muted-foreground/60" />
+            </div>
+            <p className="font-semibold text-foreground mb-2">No Activity Logs</p>
+            <p className="text-sm text-muted-foreground">Updates will appear here once users start adding or deleting records.</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Action</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Pack</TableHead>
-                <TableHead>Container #</TableHead>
-                <TableHead>Cartons</TableHead>
-                <TableHead>ETD</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {updateLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>
-                    <Badge 
-                        className={cn(
-                          log.action === 'ADDED' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                            : log.action === 'DELETED'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        )}
-                      >
-                        {log.action === 'ADDED' ? 'Added' : log.action === 'DELETED' ? 'Deleted' : 'Updated'}
-                      </Badge>
-                  </TableCell>
-                  <TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80 border-b-2 border-border/60 hover:bg-muted/80">
+                  <TableHead className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-bold text-foreground tracking-wide">Action</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-muted-foreground" />
-                      <div>
-                        <span className="font-medium block">
-                          {log.user_name || 'No name'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{log.user_email}</span>
-                      </div>
+                      <span className="text-sm font-bold text-foreground tracking-wide">User</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">{log.pack}</span>
+                      <span className="text-sm font-bold text-foreground tracking-wide">Pack</span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm font-mono">{log.container}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm font-medium">{log.cartons.toLocaleString()}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{log.etd}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span title={formatLastLoginGMT8(log.added_at)}>
-                        {formatLastLoginGMT8(log.added_at)}
-                      </span>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">
+                    <span className="text-sm font-bold text-foreground tracking-wide">Container #</span>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">
+                    <span className="text-sm font-bold text-foreground tracking-wide">Cartons</span>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <Apple className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-bold text-foreground tracking-wide">Item Type</span>
                     </div>
-                  </TableCell>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-bold text-foreground tracking-wide">Date</span>
+                    </div>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {updateLogs.map((log, index) => (
+                  <TableRow 
+                    key={log.id}
+                    className={cn(
+                      "hover:bg-muted/40 transition-all duration-200 border-b border-border/30 group",
+                      index % 2 === 0 ? "bg-card" : "bg-muted/20"
+                    )}
+                  >
+                    <TableCell className="px-6 py-4">
+                      <Badge 
+                        className={cn(
+                          "font-semibold px-3 py-1 text-xs flex items-center gap-1.5 w-fit",
+                          log.action === 'ADDED' 
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50' 
+                            : log.action === 'DELETED'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800/50'
+                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50'
+                        )}
+                      >
+                        {log.action === 'ADDED' ? (
+                          <>
+                            <Plus className="w-3 h-3" />
+                            Added
+                          </>
+                        ) : log.action === 'DELETED' ? (
+                          <>
+                            <Minus className="w-3 h-3" />
+                            Deleted
+                          </>
+                        ) : (
+                          <>
+                            <Edit className="w-3 h-3" />
+                            Updated
+                          </>
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 via-primary/15 to-secondary/15 flex items-center justify-center flex-shrink-0 border-2 border-primary/30 shadow-sm">
+                          <span className="text-sm font-bold text-primary">
+                            {(log.user_name || log.user_email).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm text-foreground truncate">
+                            {log.user_name || 'No name'}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={log.user_email}>
+                            {log.user_email}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-muted-foreground/60" />
+                        <span className="text-sm font-medium text-foreground">{log.pack}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <span className="text-sm font-mono font-medium text-foreground bg-muted/30 px-2 py-1 rounded border border-border/50">
+                        {log.container}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <span className="text-sm font-semibold text-foreground">{log.cartons.toLocaleString()}</span>
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      {log.item && log.item !== 'N/A' ? (
+                        <span className="text-sm font-medium text-foreground">
+                          {log.item === 'BANANAS' ? 'Bananas' : 'Pineapples'}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground italic">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Clock className="w-4 h-4 text-muted-foreground/60" />
+                        <span 
+                          className="text-foreground/80 font-medium"
+                          title={formatLastLoginGMT8(log.added_at)}
+                        >
+                          {formatLastLoginGMT8(log.added_at)}
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
+
+        {/* Pagination */}
+        {updateLogs.length > 0 && (() => {
+          const totalPages = Math.ceil(totalCount / itemsPerPage);
+          const startRecord = (currentPage - 1) * itemsPerPage + 1;
+          const endRecord = Math.min(currentPage * itemsPerPage, totalCount);
+
+          return totalPages > 1 ? (
+            <div className="px-6 py-4 border-t border-border/50 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startRecord} to {endRecord} of {totalCount} records
+                </p>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) {
+                            setCurrentPage(prev => prev - 1);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        }}
+                        className={cn(currentPage === 1 && 'pointer-events-none opacity-50')}
+                      />
+                    </PaginationItem>
+                    
+                    {/* Page Numbers */}
+                    {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                      let pageNum: number;
+                      if (totalPages <= 7) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 4) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 3) {
+                        pageNum = totalPages - 6 + i;
+                      } else {
+                        pageNum = currentPage - 3 + i;
+                      }
+                      
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(pageNum);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            isActive={currentPage === pageNum}
+                            className="cursor-pointer"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    })}
+                    
+                    {totalPages > 7 && currentPage < totalPages - 3 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) {
+                            setCurrentPage(prev => prev + 1);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        }}
+                        className={cn(currentPage === totalPages && 'pointer-events-none opacity-50')}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </div>
+          ) : null;
+        })()}
       </div>
     </div>
   );

@@ -269,7 +269,7 @@ export function Sidebar({
         </div>
 
         {/* Generate Section - Separated */}
-        {canAccessPage('data') && (
+        {canAccessPage('generate') && (
           <div className="pt-2.5 border-t border-primary/30">
             {!isCollapsed && (
               <p className="text-[9px] font-bold text-primary-foreground/40 uppercase tracking-[0.2em] px-2.5 mb-2">

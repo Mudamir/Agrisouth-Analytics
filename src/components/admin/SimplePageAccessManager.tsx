@@ -33,29 +33,33 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  LayoutDashboard,
-  BarChart3,
-  Database,
+  Home,
+  TrendingUp,
+  Table2,
   DollarSign,
-  Users,
-  Settings,
-  FileText,
+  UserCog,
+  Cog,
+  History,
   Loader2,
-  FileCheck,
+  FilePlus,
+  RefreshCw,
+  Shield,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// Page definitions with icons
+// Page definitions with better icons and refined colors
 const PAGES = [
-  { key: 'page.dashboard', name: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600' },
-  { key: 'page.analysis', name: 'Analysis', icon: BarChart3, color: 'text-purple-600' },
-  { key: 'page.data', name: 'Data', icon: Database, color: 'text-green-600' },
-  { key: 'page.pnl', name: 'PNL', icon: DollarSign, color: 'text-yellow-600' },
-  { key: 'page.generate', name: 'Generate', icon: FileCheck, color: 'text-teal-600' },
-  { key: 'page.users', name: 'User Management', icon: Users, color: 'text-red-600' },
-  { key: 'page.configuration', name: 'Configuration', icon: Settings, color: 'text-gray-600' },
-  { key: 'page.data_logs', name: 'Data Logs', icon: FileText, color: 'text-orange-600' },
+  { key: 'page.dashboard', name: 'Dashboard', icon: Home, bgColor: 'bg-blue-500/10', iconColor: 'text-blue-600', borderColor: 'border-blue-500/20' },
+  { key: 'page.analysis', name: 'Analysis', icon: TrendingUp, bgColor: 'bg-purple-500/10', iconColor: 'text-purple-600', borderColor: 'border-purple-500/20' },
+  { key: 'page.data', name: 'Data', icon: Table2, bgColor: 'bg-emerald-500/10', iconColor: 'text-emerald-600', borderColor: 'border-emerald-500/20' },
+  { key: 'page.pnl', name: 'PNL', icon: DollarSign, bgColor: 'bg-amber-500/10', iconColor: 'text-amber-600', borderColor: 'border-amber-500/20' },
+  { key: 'page.generate', name: 'Generate', icon: FilePlus, bgColor: 'bg-cyan-500/10', iconColor: 'text-cyan-600', borderColor: 'border-cyan-500/20' },
+  { key: 'page.users', name: 'User Management', icon: UserCog, bgColor: 'bg-rose-500/10', iconColor: 'text-rose-600', borderColor: 'border-rose-500/20' },
+  { key: 'page.configuration', name: 'Configuration', icon: Cog, bgColor: 'bg-slate-500/10', iconColor: 'text-slate-600', borderColor: 'border-slate-500/20' },
+  { key: 'page.data_logs', name: 'Data Logs', icon: History, bgColor: 'bg-orange-500/10', iconColor: 'text-orange-600', borderColor: 'border-orange-500/20' },
 ] as const;
 
 
@@ -276,46 +280,61 @@ export function SimplePageAccessManager() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Elegant Header */}
+      {/* Premium Header Design */}
       <div className="flex items-center justify-between">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-2xl font-bold font-heading text-foreground tracking-tight mb-2">Page Access</h2>
-            <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full" />
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center shadow-sm">
+              <Shield className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-foreground tracking-tight">Page Access Control</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Manage user permissions across all pages
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Toggle page access for users
-          </p>
         </div>
         <Button 
           onClick={loadData} 
           variant="outline" 
           size="sm" 
-          className="gap-2 hover:bg-primary hover:text-primary-foreground transition-colors"
+          className="gap-2 hover:bg-primary hover:text-primary-foreground transition-all duration-200 shadow-sm"
+          disabled={loading}
         >
-          <Loader2 className={cn("w-4 h-4", loading && "animate-spin")} />
+          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
-      {/* Modern Elegant Table */}
-      <div className="bg-gradient-to-br from-card to-card/50 rounded-xl border border-border/60 shadow-lg overflow-hidden">
+      {/* Premium Table Design */}
+      <div className="bg-card rounded-2xl border border-border/50 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gradient-to-r from-muted/50 via-muted/40 to-muted/50 border-b-2 border-border/60">
-                <TableHead className="sticky left-0 bg-gradient-to-r from-muted/60 to-muted/50 z-20 min-w-[220px] border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
-                  <span className="text-sm font-bold text-foreground">User</span>
+              <TableRow className="bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80 border-b border-border/60 hover:bg-muted/80">
+                <TableHead className="sticky left-0 bg-gradient-to-r from-muted/90 to-muted/80 z-30 min-w-[240px] border-r-2 border-border/60 shadow-[4px_0_8px_rgba(0,0,0,0.08)] px-6 py-5">
+                  <div className="flex items-center gap-2">
+                    <UserCog className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-bold text-foreground tracking-wide">User</span>
+                  </div>
                 </TableHead>
                 {PAGES.map((page) => {
                   const Icon = page.icon;
                   return (
-                    <TableHead key={page.key} className="text-center min-w-[110px] py-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/40 border border-border/50 group-hover:bg-muted/60 transition-colors">
-                          <Icon className={cn('w-4 h-4', page.color)} />
+                    <TableHead key={page.key} className="text-center min-w-[130px] px-4 py-5">
+                      <div className="flex flex-col items-center gap-2.5">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all duration-200",
+                          page.bgColor,
+                          page.borderColor,
+                          "shadow-sm hover:shadow-md hover:scale-105"
+                        )}>
+                          <Icon className={cn('w-5 h-5', page.iconColor)} />
                         </div>
-                        <span className="text-xs font-semibold text-foreground">{page.name}</span>
+                        <span className="text-xs font-bold text-foreground tracking-wide leading-tight text-center max-w-[100px]">
+                          {page.name}
+                        </span>
                       </div>
                     </TableHead>
                   );
@@ -325,29 +344,38 @@ export function SimplePageAccessManager() {
             <TableBody>
               {users.map((user, index) => {
                 const access = userAccess.get(user.id);
+                const totalAccess = Array.from(access?.pageAccess.values() || []).filter(Boolean).length;
 
                 return (
                   <TableRow 
                     key={user.id}
                     className={cn(
-                      "hover:bg-muted/30 transition-all duration-200 border-b border-border/40 group",
-                      index % 2 === 0 && "bg-card/50"
+                      "hover:bg-muted/40 transition-all duration-200 border-b border-border/30 group",
+                      index % 2 === 0 ? "bg-card" : "bg-muted/20"
                     )}
                   >
-                    <TableCell className="sticky left-0 bg-card z-10 border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.05)] py-4">
+                    <TableCell className="sticky left-0 bg-inherit z-20 border-r-2 border-border/60 shadow-[4px_0_8px_rgba(0,0,0,0.08)] px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
-                          <span className="text-sm font-bold text-primary">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 via-primary/15 to-secondary/15 flex items-center justify-center flex-shrink-0 border-2 border-primary/30 shadow-md group-hover:shadow-lg transition-shadow">
+                          <span className="text-base font-bold text-primary">
                             {(user.full_name || user.email).charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm text-foreground truncate">
+                          <div className="font-semibold text-sm text-foreground truncate mb-1">
                             {user.full_name || user.email}
                           </div>
-                          <Badge variant="outline" className="text-xs mt-1.5 border-border/60">
-                            {user.role.toUpperCase()}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs font-semibold border-border/60 px-2 py-0.5"
+                            >
+                              {user.role.toUpperCase()}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {totalAccess} access
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -356,31 +384,24 @@ export function SimplePageAccessManager() {
                       const isSaving = saving.has(`${user.id}-${page.key}`);
                       const Icon = page.icon;
 
-                      // Debug for data logs
-                      if (page.key === 'page.data_logs') {
-                        console.log(`User ${user.email} - Data Logs checkbox state:`, {
-                          hasAccess,
-                          pageAccessValue: access?.pageAccess.get(page.key),
-                          pageAccessMap: access?.pageAccess,
-                          allKeys: Array.from(access?.pageAccess.keys() || []),
-                        });
-                      }
-
                       return (
-                        <TableCell key={page.key} className="text-center py-5">
+                        <TableCell key={page.key} className="text-center px-4 py-4">
                           {isSaving ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" />
+                            <div className="flex items-center justify-center">
+                              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                            </div>
                           ) : (
                             <div className="flex items-center justify-center">
                               <Checkbox
                                 checked={hasAccess || false}
                                 onCheckedChange={(checked) => {
-                                  console.log(`Toggling ${page.key} for ${user.email}:`, checked);
                                   togglePageAccess(user.id, page.key, checked === true);
                                 }}
                                 className={cn(
-                                  "w-5 h-5 transition-all duration-200",
-                                  hasAccess && "ring-2 ring-primary/30"
+                                  "w-6 h-6 transition-all duration-200 cursor-pointer border-2",
+                                  hasAccess 
+                                    ? "border-primary bg-primary data-[state=checked]:bg-primary data-[state=checked]:border-primary ring-2 ring-primary/20" 
+                                    : "border-border/60 hover:border-primary/50 hover:bg-muted/50"
                                 )}
                               />
                             </div>
@@ -396,6 +417,22 @@ export function SimplePageAccessManager() {
         </div>
       </div>
 
+      {/* Summary Footer */}
+      <div className="flex items-center justify-between text-sm text-muted-foreground px-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>Access granted</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <XCircle className="w-4 h-4 text-muted-foreground" />
+            <span>Access denied</span>
+          </div>
+        </div>
+        <div className="text-xs">
+          Total users: <span className="font-semibold text-foreground">{users.length}</span>
+        </div>
+      </div>
     </div>
   );
 }

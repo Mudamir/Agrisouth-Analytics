@@ -22,9 +22,9 @@ const Index = () => {
   // Redirect if user tries to access a page they don't have permission for
   // Also re-check when permissions change
   useEffect(() => {
-    // Handle 'generate' and 'invoice-generation' pages specially - they use 'data' permission
-    if (currentPage === 'generate' || currentPage === 'invoice-generation') {
-      if (!canAccessPage('data')) {
+    // Handle invoice-generation as a sub-page of generate
+    if (currentPage === 'invoice-generation') {
+      if (!canAccessPage('generate')) {
         setCurrentPage('dashboard');
       }
     } else if (!canAccessPage(currentPage)) {
@@ -104,11 +104,11 @@ const Index = () => {
         />
       )}
 
-      {currentPage === 'generate' && canAccessPage('data') && (
+      {currentPage === 'generate' && canAccessPage('generate') && (
         <Generate onNavigate={setCurrentPage} />
       )}
 
-      {currentPage === 'invoice-generation' && canAccessPage('data') && (
+      {currentPage === 'invoice-generation' && canAccessPage('generate') && (
         <InvoiceGeneration onNavigate={setCurrentPage} />
       )}
 

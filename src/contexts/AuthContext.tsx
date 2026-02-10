@@ -30,7 +30,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   userRole: UserProfile['role'] | null;
-  canAccessPage: (page: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs') => boolean;
+  canAccessPage: (page: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'generate' | 'users' | 'configuration' | 'data-logs') => boolean;
   hasPermission: (permissionKey: string) => boolean;
   canAccessUserManagement: boolean;
   canAccessPNL: boolean;
@@ -412,7 +412,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [userProfile, user, userPermissions]);
 
   // Access control helpers - now uses permission system
-  const canAccessPage = useCallback((page: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs'): boolean => {
+  const canAccessPage = useCallback((page: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'generate' | 'users' | 'configuration' | 'data-logs'): boolean => {
     if (!userProfile || !userProfile.is_active) return false;
     
     // Map page to permission key
@@ -421,6 +421,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       'analysis': 'page.analysis',
       'data': 'page.data',
       'pnl': 'page.pnl',
+      'generate': 'page.generate',
       'users': 'page.users',
       'configuration': 'page.configuration',
       'data-logs': 'page.data_logs',
