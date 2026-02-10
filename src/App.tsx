@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Generate from "./pages/Generate";
 import NotFound from "./pages/NotFound";
 
 // Optimized QueryClient configuration for better performance
@@ -43,6 +44,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/generate"
+                element={
+                  <ProtectedRoute>
+                    <Generate />
                   </ProtectedRoute>
                 }
               />

@@ -26,10 +26,10 @@ export function PNLTable({
   const isProfit = type === 'profit';
   const showTotals = type !== 'cartons';
 
-  // Format value helper - shows 0 instead of blank
+  // Format value helper - shows "-" for zero values
   const formatDisplayValue = (value: number) => {
     if (value === 0) {
-      return type === 'cartons' ? '0' : (type === 'profit' ? '$0.00' : '$0.00');
+      return '-';
     }
     return formatValue(value);
   };
@@ -71,16 +71,16 @@ export function PNLTable({
 
 
   return (
-    <div className="bg-card rounded-lg border border-border shadow-sm">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
-        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">{title}</h3>
+    <div className="bg-gradient-to-br from-card to-card/50 rounded-xl border border-border/60 shadow-lg overflow-hidden">
+      {/* Elegant Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-gradient-to-r from-muted/40 via-muted/30 to-muted/40 backdrop-blur-sm">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">{title}</h3>
         {type === 'profit' && grandTotals.profit !== 0 && (
           <span className={cn(
-            "text-xs font-semibold px-2 py-0.5 rounded",
+            "text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm",
             grandTotals.profit >= 0 
-              ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
-              : "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400"
+              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+              : "bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20"
           )}>
             {grandTotals.profit >= 0 ? '↑' : '↓'} {formatDisplayValue(grandTotals.profit)}
           </span>
@@ -90,9 +90,9 @@ export function PNLTable({
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50 border-b border-border h-8">
-              <TableHead className="w-24 font-semibold text-[10px] py-1.5 px-2 bg-muted/60 sticky left-0 z-20 border-r border-border">
-                Pack
+            <TableRow className="bg-gradient-to-r from-muted/50 via-muted/40 to-muted/50 border-b-2 border-border/60 h-10">
+              <TableHead className="w-28 font-bold text-xs py-3 px-4 bg-gradient-to-r from-muted/60 to-muted/50 sticky left-0 z-20 border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+                <span className="text-xs">Pack</span>
               </TableHead>
               {suppliers.map(supplier => {
                 const isHighlighted = isSupplierHighlighted(supplier);
@@ -100,16 +100,18 @@ export function PNLTable({
                   <TableHead 
                     key={supplier} 
                     className={cn(
-                      "text-right font-semibold min-w-[90px] text-[10px] py-1.5 px-2 whitespace-nowrap transition-all duration-150",
-                      isHighlighted && "bg-primary/20 ring-1 ring-primary/40"
+                      "text-right font-bold min-w-[100px] text-xs py-3 px-3 whitespace-nowrap transition-all duration-200",
+                      isHighlighted 
+                        ? "bg-primary/25 ring-2 ring-primary/30 text-primary" 
+                        : "text-foreground/80"
                     )}
                   >
-                    <span className="text-[10px]">{supplier}</span>
+                    <span className="text-xs">{supplier}</span>
                   </TableHead>
                 );
               })}
-              <TableHead className="text-right font-semibold min-w-[90px] text-[10px] py-1.5 px-2 whitespace-nowrap bg-muted/80 border-l-2 border-border">
-                <span className="text-[10px]">Total</span>
+              <TableHead className="text-right font-bold min-w-[100px] text-xs py-3 px-3 whitespace-nowrap bg-gradient-to-r from-muted/70 to-muted/60 border-l-2 border-border/60">
+                <span className="text-xs">Total</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -121,13 +123,13 @@ export function PNLTable({
                 <TableRow 
                   key={pack.pack} 
                   className={cn(
-                    "hover:bg-muted/5 border-b border-border/50 transition-colors duration-100",
-                    packIsHighlighted && "bg-primary/5"
+                    "hover:bg-muted/30 border-b border-border/40 transition-all duration-200 group",
+                    packIsHighlighted && "bg-primary/8"
                   )}
                 >
                   <TableCell className={cn(
-                    "font-semibold text-[11px] py-1.5 px-2 bg-muted/30 border-r border-border sticky left-0 z-10 transition-colors duration-100",
-                    packIsHighlighted && "bg-primary/15"
+                    "font-bold text-xs py-3 px-4 bg-gradient-to-r from-muted/40 to-muted/30 border-r border-border/60 sticky left-0 z-10 transition-all duration-200 shadow-[2px_0_4px_rgba(0,0,0,0.05)]",
+                    packIsHighlighted && "bg-primary/15 text-primary"
                   )}>
                     {pack.pack}
                   </TableCell>
@@ -140,35 +142,36 @@ export function PNLTable({
                       key={supplier}
                       onClick={() => handleCellClick(pack.pack, supplier)}
                       className={cn(
-                        'text-right text-[11px] py-1.5 px-2 font-medium cursor-pointer transition-all duration-100 whitespace-nowrap',
-                        'hover:bg-primary/8',
-                        isSelected && 'bg-primary/20 ring-1 ring-primary/50 font-semibold',
+                        'text-right text-xs py-3 px-3 font-semibold cursor-pointer transition-all duration-200 whitespace-nowrap',
+                        'hover:bg-primary/12 hover:scale-[1.02]',
+                        isSelected && 'bg-primary/25 ring-2 ring-primary/40 font-bold shadow-sm',
                         isProfit && value !== 0 && (
                           value >= 0 
-                            ? 'text-emerald-600 dark:text-emerald-500' 
-                            : 'text-red-600 dark:text-red-500'
+                            ? 'text-emerald-700 dark:text-emerald-400' 
+                            : 'text-red-700 dark:text-red-400'
                         ),
-                        !isProfit && isSelected && 'text-primary'
+                        !isProfit && isSelected && 'text-primary',
+                        !isProfit && !isSelected && 'text-foreground/90'
                       )}
                       title={`${pack.pack} - ${supplier}: ${formatDisplayValue(value)}`}
                     >
                       {isProfit && value !== 0 && (
-                        <span className="mr-1">{value >= 0 ? '↑' : '↓'}</span>
+                        <span className="mr-1.5 font-bold">{value >= 0 ? '↑' : '↓'}</span>
                       )}
                       {formatDisplayValue(value)}
                     </TableCell>
                   );
                 })}
                 <TableCell className={cn(
-                  'text-right text-[11px] py-1.5 px-2 font-semibold whitespace-nowrap bg-muted/40 border-l-2 border-border',
+                  'text-right text-xs py-3 px-3 font-bold whitespace-nowrap bg-gradient-to-r from-muted/50 to-muted/40 border-l-2 border-border/60',
                   isProfit && pack.totals[type] !== 0 && (
                     pack.totals[type] >= 0 
-                      ? 'text-emerald-600 dark:text-emerald-500' 
-                      : 'text-red-600 dark:text-red-500'
+                      ? 'text-emerald-700 dark:text-emerald-400' 
+                      : 'text-red-700 dark:text-red-400'
                   )
                 )}>
                   {isProfit && pack.totals[type] !== 0 && (
-                    <span className="mr-1">{pack.totals[type] >= 0 ? '↑' : '↓'}</span>
+                    <span className="mr-1.5 font-bold">{pack.totals[type] >= 0 ? '↑' : '↓'}</span>
                   )}
                   {formatDisplayValue(pack.totals[type])}
                 </TableCell>
@@ -176,12 +179,12 @@ export function PNLTable({
               );
             })}
             <TableRow className={cn(
-              "bg-muted/60 font-semibold border-t-2 border-border transition-colors duration-100",
-              isTotalRowHighlighted() && "bg-primary/5"
+              "bg-gradient-to-r from-muted/70 via-muted/60 to-muted/70 font-bold border-t-2 border-border/60 transition-all duration-200",
+              isTotalRowHighlighted() && "bg-primary/10"
             )}>
               <TableCell className={cn(
-                "font-bold text-[11px] py-2 px-2 bg-muted/70 border-r border-border sticky left-0 z-10 transition-colors duration-100",
-                isTotalRowHighlighted() && "bg-primary/15"
+                "font-bold text-xs py-3.5 px-4 bg-gradient-to-r from-muted/80 to-muted/70 border-r border-border/60 sticky left-0 z-10 transition-all duration-200 shadow-[2px_0_4px_rgba(0,0,0,0.05)]",
+                isTotalRowHighlighted() && "bg-primary/20 text-primary"
               )}>
                 Total
               </TableCell>
@@ -196,33 +199,33 @@ export function PNLTable({
                     key={supplier}
                     onClick={() => handleCellClick('TOTAL', supplier)}
                     className={cn(
-                      'text-right text-[11px] py-2 px-2 whitespace-nowrap font-semibold cursor-pointer transition-all duration-100 hover:bg-primary/8',
-                      isSelected && 'bg-primary/20 ring-1 ring-primary/50',
+                      'text-right text-xs py-3.5 px-3 whitespace-nowrap font-bold cursor-pointer transition-all duration-200 hover:bg-primary/15',
+                      isSelected && 'bg-primary/30 ring-2 ring-primary/40 shadow-sm',
                       isProfit && supplierTotal !== 0 && (
                         supplierTotal >= 0 
-                          ? 'text-emerald-600 dark:text-emerald-500' 
-                          : 'text-red-600 dark:text-red-500'
+                          ? 'text-emerald-700 dark:text-emerald-400' 
+                          : 'text-red-700 dark:text-red-400'
                       )
                     )}
                     title={`Total - ${supplier}: ${formatDisplayValue(supplierTotal)}`}
                   >
                     {isProfit && supplierTotal !== 0 && (
-                      <span className="mr-1">{supplierTotal >= 0 ? '↑' : '↓'}</span>
+                      <span className="mr-1.5 font-bold">{supplierTotal >= 0 ? '↑' : '↓'}</span>
                     )}
                     {formatDisplayValue(supplierTotal)}
                   </TableCell>
                 );
               })}
               <TableCell className={cn(
-                'text-right text-[11px] py-2 px-2 whitespace-nowrap font-bold bg-muted/70 border-l-2 border-border',
+                'text-right text-xs py-3.5 px-3 whitespace-nowrap font-bold bg-gradient-to-r from-muted/80 to-muted/70 border-l-2 border-border/60',
                 isProfit && grandTotals[type] !== 0 && (
                   grandTotals[type] >= 0 
-                    ? 'text-emerald-600 dark:text-emerald-500' 
-                    : 'text-red-600 dark:text-red-500'
+                    ? 'text-emerald-700 dark:text-emerald-400' 
+                    : 'text-red-700 dark:text-red-400'
                 )
               )}>
                 {isProfit && grandTotals[type] !== 0 && (
-                  <span className="mr-1">{grandTotals[type] >= 0 ? '↑' : '↓'}</span>
+                  <span className="mr-1.5 font-bold">{grandTotals[type] >= 0 ? '↑' : '↓'}</span>
                 )}
                 {formatDisplayValue(grandTotals[type])}
               </TableCell>

@@ -8,10 +8,12 @@ import { PNLView } from '@/components/dashboard/PNLView';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { ConfigurationManagement } from '@/components/admin/ConfigurationManagement';
 import { DataLogs } from '@/components/admin/DataLogs';
+import Generate from './Generate';
+import InvoiceGeneration from './InvoiceGeneration';
 import { useShippingData } from '@/hooks/useShippingData';
 import { useAuth } from '@/contexts/AuthContext';
 
-type Page = 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs';
+type Page = 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs' | 'generate' | 'invoice-generation';
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -20,7 +22,12 @@ const Index = () => {
   // Redirect if user tries to access a page they don't have permission for
   // Also re-check when permissions change
   useEffect(() => {
-    if (!canAccessPage(currentPage)) {
+    // Handle 'generate' and 'invoice-generation' pages specially - they use 'data' permission
+    if (currentPage === 'generate' || currentPage === 'invoice-generation') {
+      if (!canAccessPage('data')) {
+        setCurrentPage('dashboard');
+      }
+    } else if (!canAccessPage(currentPage)) {
       // Redirect to dashboard if they don't have access
       setCurrentPage('dashboard');
     }
@@ -95,6 +102,14 @@ const Index = () => {
           selectedFruit={selectedFruit}
           onSelectFruit={setSelectedFruit}
         />
+      )}
+
+      {currentPage === 'generate' && canAccessPage('data') && (
+        <Generate onNavigate={setCurrentPage} />
+      )}
+
+      {currentPage === 'invoice-generation' && canAccessPage('data') && (
+        <InvoiceGeneration onNavigate={setCurrentPage} />
       )}
 
       {currentPage === 'users' && canAccessPage('users') && (

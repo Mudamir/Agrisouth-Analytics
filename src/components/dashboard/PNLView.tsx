@@ -377,8 +377,11 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="page-title mb-1">PROFIT & LOSS (PNL)</h1>
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-3xl font-bold font-heading text-foreground tracking-tight mb-2">Profit & Loss (PNL)</h1>
+              <div className="w-16 h-1 bg-gradient-to-r from-primary to-secondary rounded-full" />
+            </div>
             <div className="flex items-center gap-3">
               <p className="text-sm text-muted-foreground">
                 {isLoadingPrices || !dataReady 

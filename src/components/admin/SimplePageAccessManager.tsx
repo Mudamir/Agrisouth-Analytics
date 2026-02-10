@@ -41,6 +41,7 @@ import {
   Settings,
   FileText,
   Loader2,
+  FileCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,7 @@ const PAGES = [
   { key: 'page.analysis', name: 'Analysis', icon: BarChart3, color: 'text-purple-600' },
   { key: 'page.data', name: 'Data', icon: Database, color: 'text-green-600' },
   { key: 'page.pnl', name: 'PNL', icon: DollarSign, color: 'text-yellow-600' },
+  { key: 'page.generate', name: 'Generate', icon: FileCheck, color: 'text-teal-600' },
   { key: 'page.users', name: 'User Management', icon: Users, color: 'text-red-600' },
   { key: 'page.configuration', name: 'Configuration', icon: Settings, color: 'text-gray-600' },
   { key: 'page.data_logs', name: 'Data Logs', icon: FileText, color: 'text-orange-600' },
@@ -274,36 +276,46 @@ export function SimplePageAccessManager() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Minimal Header */}
+      {/* Elegant Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Page Access</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-2xl font-bold font-heading text-foreground tracking-tight mb-2">Page Access</h2>
+            <div className="w-12 h-1 bg-gradient-to-r from-primary to-secondary rounded-full" />
+          </div>
+          <p className="text-sm text-muted-foreground">
             Toggle page access for users
           </p>
         </div>
-        <Button onClick={loadData} variant="ghost" size="sm" className="gap-2">
+        <Button 
+          onClick={loadData} 
+          variant="outline" 
+          size="sm" 
+          className="gap-2 hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
           <Loader2 className={cn("w-4 h-4", loading && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
-      {/* Clean Minimal Table */}
-      <div className="bg-card rounded-lg border overflow-hidden">
+      {/* Modern Elegant Table */}
+      <div className="bg-gradient-to-br from-card to-card/50 rounded-xl border border-border/60 shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30 border-b">
-                <TableHead className="sticky left-0 bg-muted/30 z-10 min-w-[200px] border-r">
-                  <span className="text-sm font-medium text-muted-foreground">User</span>
+              <TableRow className="bg-gradient-to-r from-muted/50 via-muted/40 to-muted/50 border-b-2 border-border/60">
+                <TableHead className="sticky left-0 bg-gradient-to-r from-muted/60 to-muted/50 z-20 min-w-[220px] border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+                  <span className="text-sm font-bold text-foreground">User</span>
                 </TableHead>
                 {PAGES.map((page) => {
                   const Icon = page.icon;
                   return (
-                    <TableHead key={page.key} className="text-center min-w-[100px]">
-                      <div className="flex flex-col items-center gap-1.5 py-1.5">
-                        <Icon className={cn('w-4 h-4', page.color)} />
-                        <span className="text-xs font-medium text-muted-foreground">{page.name}</span>
+                    <TableHead key={page.key} className="text-center min-w-[110px] py-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/40 border border-border/50 group-hover:bg-muted/60 transition-colors">
+                          <Icon className={cn('w-4 h-4', page.color)} />
+                        </div>
+                        <span className="text-xs font-semibold text-foreground">{page.name}</span>
                       </div>
                     </TableHead>
                   );
@@ -311,27 +323,30 @@ export function SimplePageAccessManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => {
+              {users.map((user, index) => {
                 const access = userAccess.get(user.id);
 
                 return (
                   <TableRow 
                     key={user.id}
-                    className="hover:bg-muted/20 transition-colors border-b"
+                    className={cn(
+                      "hover:bg-muted/30 transition-all duration-200 border-b border-border/40 group",
+                      index % 2 === 0 && "bg-card/50"
+                    )}
                   >
-                    <TableCell className="sticky left-0 bg-card z-10 border-r">
+                    <TableCell className="sticky left-0 bg-card z-10 border-r border-border/60 shadow-[2px_0_4px_rgba(0,0,0,0.05)] py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-semibold text-primary">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
+                          <span className="text-sm font-bold text-primary">
                             {(user.full_name || user.email).charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">
+                          <div className="font-semibold text-sm text-foreground truncate">
                             {user.full_name || user.email}
                           </div>
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {user.role}
+                          <Badge variant="outline" className="text-xs mt-1.5 border-border/60">
+                            {user.role.toUpperCase()}
                           </Badge>
                         </div>
                       </div>
@@ -352,18 +367,23 @@ export function SimplePageAccessManager() {
                       }
 
                       return (
-                        <TableCell key={page.key} className="text-center py-4">
+                        <TableCell key={page.key} className="text-center py-5">
                           {isSaving ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-primary mx-auto" />
+                            <Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" />
                           ) : (
-                            <Checkbox
-                              checked={hasAccess || false}
-                              onCheckedChange={(checked) => {
-                                console.log(`Toggling ${page.key} for ${user.email}:`, checked);
-                                togglePageAccess(user.id, page.key, checked === true);
-                              }}
-                              className="mx-auto"
-                            />
+                            <div className="flex items-center justify-center">
+                              <Checkbox
+                                checked={hasAccess || false}
+                                onCheckedChange={(checked) => {
+                                  console.log(`Toggling ${page.key} for ${user.email}:`, checked);
+                                  togglePageAccess(user.id, page.key, checked === true);
+                                }}
+                                className={cn(
+                                  "w-5 h-5 transition-all duration-200",
+                                  hasAccess && "ring-2 ring-primary/30"
+                                )}
+                              />
+                            </div>
                           )}
                         </TableCell>
                       );

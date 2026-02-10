@@ -1038,9 +1038,12 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     <div className="flex-1 p-6 overflow-hidden flex flex-col">
       <div className="mb-6 space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="page-title">DATA MANAGEMENT</h1>
-            <p className="text-muted-foreground">Add, view, and manage shipping records</p>
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-3xl font-bold font-heading text-foreground tracking-tight mb-2">Data Management</h1>
+              <div className="w-16 h-1 bg-gradient-to-r from-primary to-secondary rounded-full" />
+            </div>
+            <p className="text-sm text-muted-foreground">Add, view, and manage shipping records</p>
           </div>
           <Button 
             onClick={handleExport} 

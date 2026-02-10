@@ -139,13 +139,16 @@ export function UserManagement() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-heading">User Management</h1>
-          <p className="text-muted-foreground mt-1">
+        <div className="space-y-3">
+          <div>
+            <h1 className="text-3xl font-bold font-heading text-foreground tracking-tight mb-2">User Management</h1>
+            <div className="w-16 h-1 bg-gradient-to-r from-primary to-secondary rounded-full" />
+          </div>
+          <p className="text-sm text-muted-foreground">
             Manage system users and monitor activity
           </p>
         </div>
-        <Badge variant="outline" className="text-sm">
+        <Badge variant="outline" className="text-sm border-border/60">
           <Shield className="w-4 h-4 mr-1" />
           {currentUser?.role === 'admin' ? 'Admin Only' : 'Manager Access'}
         </Badge>
