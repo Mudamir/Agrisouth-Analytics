@@ -418,57 +418,75 @@ export function useShippingData() {
       }
 
       // Manually log activity to data_activity_log
+      // This ensures every record addition is tracked
       if (data) {
-        // Get current user ID
-        const { data: { user } } = await supabase.auth.getUser();
-        const userId = user?.id || null;
+        try {
+          // Get current user ID
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          
+          if (userError) {
+            logger.safeError('Failed to get user for activity log', userError);
+          } else if (user?.id) {
+            // Insert activity log with all record details
+            const { error: logError } = await supabase
+              .from('data_activity_log')
+              .insert({
+                action: 'INSERT',
+                record_id: data.id,
+                user_id: user.id,
+                action_timestamp: new Date().toISOString(),
+                // Denormalized fields for quick access
+                pack: data.pack || null,
+                container: data.container || null,
+                cartons: data.cartons || 0,
+                etd: data.etd || null,
+                item: data.item || null,
+                supplier: data.supplier || null,
+                year: data.year || null,
+                week: data.week || null,
+                type: data.type || null,
+                // Store full snapshot in JSONB for complete record history
+                snapshot_data: {
+                  year: data.year,
+                  week: data.week,
+                  etd: data.etd,
+                  eta: data.eta,
+                  pol: data.pol,
+                  item: data.item,
+                  destination: data.destination,
+                  supplier: data.supplier,
+                  s_line: data.s_line,
+                  container: data.container,
+                  pack: data.pack,
+                  l_cont: data.l_cont,
+                  cartons: data.cartons,
+                  type: data.type,
+                  customer_name: data.customer_name,
+                  invoice_no: data.invoice_no,
+                  invoice_date: data.invoice_date,
+                  vessel: data.vessel,
+                  billing_no: data.billing_no,
+                },
+              });
 
-        if (userId) {
-          // Insert activity log
-          await supabase
-            .from('data_activity_log')
-            .insert({
-              action: 'INSERT',
-              record_id: data.id,
-              user_id: userId,
-              action_timestamp: new Date().toISOString(),
-              // Denormalized fields for quick access
-              pack: data.pack,
-              container: data.container,
-              cartons: data.cartons,
-              etd: data.etd,
-              item: data.item,
-              supplier: data.supplier,
-              year: data.year,
-              week: data.week,
-              type: data.type,
-              // Store full snapshot in JSONB
-              snapshot_data: {
-                year: data.year,
-                week: data.week,
-                etd: data.etd,
-                eta: data.eta,
-                pol: data.pol,
-                item: data.item,
-                destination: data.destination,
-                supplier: data.supplier,
-                s_line: data.s_line,
-                container: data.container,
-                pack: data.pack,
-                l_cont: data.l_cont,
-                cartons: data.cartons,
-                type: data.type,
-                customer_name: data.customer_name,
-                invoice_no: data.invoice_no,
-                invoice_date: data.invoice_date,
-                vessel: data.vessel,
-                billing_no: data.billing_no,
-              },
-            })
-            .catch((logError) => {
+            if (logError) {
               // Log error but don't fail the main operation
-              logger.safeError('Failed to log activity', logError);
-            });
+              logger.safeError('Failed to log activity to data_activity_log', {
+                error: logError,
+                recordId: data.id,
+                userId: user.id,
+              });
+              console.error('Activity log error:', logError);
+            } else {
+              logger.debug('Activity logged successfully', { recordId: data.id, userId: user.id });
+            }
+          } else {
+            logger.safeError('No user ID available for activity logging', { recordId: data.id });
+          }
+        } catch (logErr: any) {
+          // Catch any unexpected errors in logging process
+          logger.safeError('Unexpected error during activity logging', logErr);
+          // Don't throw - the main record insert was successful
         }
       }
 
