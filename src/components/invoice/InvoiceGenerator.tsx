@@ -20,6 +20,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import InvoicePDF from './InvoicePDF';
 import { useInvoiceData, useInvoiceNumbers } from '@/hooks/useInvoiceData';
+import { format, parse } from 'date-fns';
 
 const InvoiceGenerator: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -27,6 +28,33 @@ const InvoiceGenerator: React.FC = () => {
 
   const { data: invoiceNumbers, isLoading: loadingInvoices } = useInvoiceNumbers();
   const { data: invoiceData, isLoading: loadingData, error } = useInvoiceData(selectedInvoice);
+
+  // Generate professional filename
+  const getInvoiceFileName = (invoiceNo: string, invoiceDate: string | null): string => {
+    let dateStr = '';
+    if (invoiceDate) {
+      try {
+        // Try parsing as ISO date first (yyyy-MM-dd)
+        let date = parse(invoiceDate, 'yyyy-MM-dd', new Date());
+        if (isNaN(date.getTime())) {
+          // Try parsing as Date object string
+          date = new Date(invoiceDate);
+        }
+        if (!isNaN(date.getTime())) {
+          // Format as YYYY-MM-DD for professional filename
+          dateStr = format(date, 'yyyy-MM-dd');
+        } else {
+          dateStr = format(new Date(), 'yyyy-MM-dd');
+        }
+      } catch {
+        dateStr = format(new Date(), 'yyyy-MM-dd');
+      }
+    } else {
+      dateStr = format(new Date(), 'yyyy-MM-dd');
+    }
+    // Professional format: Invoice_{InvoiceNo}_{Date}.pdf
+    return `Invoice_${invoiceNo}_${dateStr}.pdf`;
+  };
 
   const handleInvoiceSelect = (invoiceNo: string) => {
     setSelectedInvoice(invoiceNo);
@@ -145,6 +173,10 @@ const InvoiceGenerator: React.FC = () => {
                     <span className="text-sm">{invoiceData.records[0].customerName || 'N/A'}</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Supplier:</span>
+                    <span className="text-sm">{invoiceData.records[0].supplier || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">BL No.:</span>
                     <span className="text-sm">{invoiceData.records[0].billingNo || 'N/A'}</span>
                   </div>
@@ -163,7 +195,7 @@ const InvoiceGenerator: React.FC = () => {
                   invoiceDate={invoiceData.invoiceDate}
                 />
               }
-              fileName={`Invoice_${invoiceData.invoiceNo}_${new Date().toISOString().split('T')[0]}.pdf`}
+              fileName={getInvoiceFileName(invoiceData.invoiceNo, invoiceData.invoiceDate)}
             >
               {({ blob, url, loading, error }) => (
                 <Button

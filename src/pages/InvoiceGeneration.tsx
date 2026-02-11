@@ -104,17 +104,19 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
           date = new Date(invoiceDate);
         }
         if (!isNaN(date.getTime())) {
-          dateStr = format(date, 'yyyyMMdd');
+          // Format as YYYY-MM-DD for professional filename
+          dateStr = format(date, 'yyyy-MM-dd');
         } else {
-          dateStr = format(new Date(), 'yyyyMMdd');
+          dateStr = format(new Date(), 'yyyy-MM-dd');
         }
       } catch {
-        dateStr = format(new Date(), 'yyyyMMdd');
+        dateStr = format(new Date(), 'yyyy-MM-dd');
       }
     } else {
-      dateStr = format(new Date(), 'yyyyMMdd');
+      dateStr = format(new Date(), 'yyyy-MM-dd');
     }
-    return `INVOICE_${invoiceNo}_${dateStr}.pdf`;
+    // Professional format: Invoice_{InvoiceNo}_{Date}.pdf
+    return `Invoice_${invoiceNo}_${dateStr}.pdf`;
   };
 
   // Download all invoices for the selected week as a single PDF
@@ -268,7 +270,7 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `INVOICES_Week${selectedWeek}_${selectedYear}.pdf`;
+      link.download = `Invoices_Week_${selectedWeek}_${selectedYear}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -519,6 +521,10 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
                             <div>
                               <span className="text-muted-foreground">Customer:</span>
                               <p className="font-semibold">{invoiceData.records[0].customerName || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Supplier:</span>
+                              <p className="font-semibold">{invoiceData.records[0].supplier || 'N/A'}</p>
                             </div>
                             <div>
                               <span className="text-muted-foreground">BL No.:</span>

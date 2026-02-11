@@ -16,28 +16,31 @@ Font.register({
 const styles = StyleSheet.create({
   page: {
     padding: 35,
+    paddingBottom: 80, // Extra padding at bottom for footer
     fontFamily: 'Roboto',
     fontSize: 8,
     backgroundColor: '#FFFFFF',
+    position: 'relative',
   },
   // Top Header with Logo and Invoice Info
   topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
-    paddingBottom: 8,
-    borderBottom: '2pt solid #19432a',
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottom: '2.5pt solid #19432a',
   },
   logoSection: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
   },
   logo: {
-    width: 50,
-    height: 50,
-    marginRight: 10,
+    width: 65,
+    height: 65,
+    marginRight: 6,
+    marginTop: 0,
   },
   companyInfo: {
     flex: 1,
@@ -46,36 +49,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     color: '#19432a',
-    marginBottom: 3,
+    marginBottom: 4,
+    marginTop: 3,
     letterSpacing: 0.5,
+    lineHeight: 1.2,
   },
   companyAddress: {
-    fontSize: 7,
-    marginBottom: 1,
+    fontSize: 8,
+    marginBottom: 2,
+    marginTop: 2,
     color: '#333333',
+    lineHeight: 1.3,
   },
   invoiceInfoTop: {
     alignItems: 'flex-end',
   },
   invoiceTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#19432a',
-    marginBottom: 6,
+    marginBottom: 8,
+    marginTop: 0,
     textAlign: 'right',
+    letterSpacing: 1,
   },
   invoiceDetailsBox: {
-    border: '1pt solid #19432a',
-    padding: 6,
+    border: '1.5pt solid #19432a',
+    padding: 4,
     backgroundColor: '#F8F9FA',
-    borderRadius: 3,
-    minWidth: 150,
+    borderRadius: 4,
+    minWidth: 115,
     alignItems: 'flex-start',
+    boxShadow: '0 1pt 2pt rgba(0,0,0,0.1)',
   },
   invoiceDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 2,
     width: '100%',
   },
   invoiceDetailRowLast: {
@@ -86,11 +96,16 @@ const styles = StyleSheet.create({
     color: '#333333',
     fontWeight: 'bold',
   },
+  invoiceDetailNumber: {
+    fontSize: 10,
+    color: '#19432a',
+    fontWeight: 'bold',
+  },
   invoiceLabel: {
     fontSize: 7,
     color: '#666666',
-    marginRight: 6,
-    minWidth: 55,
+    marginRight: 1,
+    minWidth: 45,
     fontWeight: 'bold',
   },
   // Bill To Section
@@ -233,7 +248,7 @@ const styles = StyleSheet.create({
   detailRowFull: {
     flexDirection: 'row',
     padding: 2,
-    marginTop: 1,
+    marginTop: 0,
     width: '100%',
     borderTop: '1pt solid #E0E0E0',
     paddingTop: 2,
@@ -313,71 +328,64 @@ const styles = StyleSheet.create({
     borderTop: '1pt solid #E0E0E0',
     paddingTop: 3,
   },
-  // Footer
+  // Footer - Fixed at bottom of page
   footer: {
-    marginTop: 4,
-    paddingTop: 4,
-    borderTop: '1pt solid #E0E0E0',
+    position: 'absolute',
+    bottom: 35,
+    left: 35,
+    right: 35,
     fontSize: 7,
     color: '#666666',
   },
-  preparedBy: {
+  footerDivider: {
+    borderTop: '1pt solid #E0E0E0',
+    marginBottom: 6,
+  },
+  footerAddress: {
+    fontSize: 7,
+    color: '#666666',
+    marginBottom: 6,
+    lineHeight: 1.3,
+    textAlign: 'center',
+  },
+  contactInfo: {
+    fontSize: 7,
+    color: '#666666',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  signatureRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    marginTop: 10,
     marginBottom: 2,
+    gap: 80,
+  },
+  signatureBox: {
+    alignItems: 'flex-start',
+  },
+  preparedBy: {
+    marginBottom: 1,
     fontWeight: 'bold',
     color: '#333333',
     fontSize: 8,
   },
   preparedByName: {
-    marginBottom: 3,
+    marginBottom: 0,
     color: '#333333',
     fontSize: 8,
-    marginLeft: 0,
   },
   checkedBy: {
-    marginTop: 3,
-    marginBottom: 2,
+    marginBottom: 1,
     fontWeight: 'bold',
     color: '#333333',
     fontSize: 8,
   },
   checkedByName: {
-    marginBottom: 2,
+    marginBottom: 0,
     color: '#333333',
     fontSize: 8,
-    marginLeft: 0,
-  },
-  signatureSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  signatureBox: {
-    width: '45%',
-    alignItems: 'flex-start',
-  },
-  signatureImage: {
-    width: 80,
-    height: 40,
-    objectFit: 'contain',
-    marginBottom: 3,
-  },
-  signatureLabel: {
-    fontSize: 7,
-    fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 2,
-  },
-  signatureName: {
-    fontSize: 7,
-    color: '#333333',
-    marginBottom: 0,
-  },
-  contactInfo: {
-    fontSize: 7,
-    color: '#666666',
-    marginBottom: 1,
-    marginTop: 4,
   },
 });
 
@@ -424,7 +432,93 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
     const items: { [key: string]: GroupedItem } = {};
     
     records.forEach((record) => {
-      const description = `Philippine ${record.item === 'BANANAS' ? 'Bananas' : 'Pineapples'} ${record.pack}`;
+      // Format description based on item type
+      const itemUpper = (record.item || '').toUpperCase();
+      let description = '';
+      
+      if (itemUpper === 'BANANAS') {
+        // Format: "Philippine Bananas {weight} kg Grade {grade} {specs}"
+        // Example: "Philippine Bananas 13.5 kg Grade A (4/5/6)"
+        const pack = record.pack || '';
+        const packUpper = pack.toUpperCase();
+        
+        // Extract weight (e.g., "13.5", "7.2", "6", "3")
+        // Note: 7kg should be displayed as 7.2 kg
+        let weight = '';
+        const weightMatch = pack.match(/(\d+\.?\d*)\s*KG/i);
+        if (weightMatch) {
+          weight = weightMatch[1];
+          // Convert 7kg to 7.2 kg
+          if (weight === '7' && !pack.includes('7.2')) {
+            weight = '7.2';
+          }
+        } else {
+          // Fallback: try to extract any number at the start
+          const numMatch = pack.match(/^(\d+\.?\d*)/);
+          weight = numMatch ? numMatch[1] : pack;
+          // Convert 7kg to 7.2 kg
+          if (weight === '7' && !pack.includes('7.2')) {
+            weight = '7.2';
+          }
+        }
+        
+        // Extract grade (A, B, SH, etc.)
+        // Note: SH packs should display as "Grade A" in the invoice
+        // Look for patterns like "KG A", "KG B", "KG SH", or standalone " A ", " B ", " SH "
+        let isSH = false; // Track if it's an SH pack
+        let grade = 'A'; // Default
+        const gradePatterns = [
+          { pattern: /KG\s+(SH|S\/H)/i, value: 'SH', isSH: true },
+          { pattern: /KG\s+B/i, value: 'B', isSH: false },
+          { pattern: /KG\s+A/i, value: 'A', isSH: false },
+          { pattern: /\s(SH|S\/H)\s/i, value: 'SH', isSH: true },
+          { pattern: /\sB\s/i, value: 'B', isSH: false },
+          { pattern: /\sA\s/i, value: 'A', isSH: false },
+          { pattern: /KG(SH|S\/H)/i, value: 'SH', isSH: true },
+          { pattern: /KGB/i, value: 'B', isSH: false },
+          { pattern: /KGA/i, value: 'A', isSH: false },
+        ];
+        
+        for (const { pattern, value, isSH: patternIsSH } of gradePatterns) {
+          if (pattern.test(packUpper)) {
+            grade = value;
+            isSH = patternIsSH;
+            break;
+          }
+        }
+        
+        // SH packs display as "Grade A" in the invoice
+        if (isSH) {
+          grade = 'A';
+        }
+        
+        // Extract specs (anything in parentheses) or add default specs for certain packs
+        let specs = '';
+        const specsMatch = pack.match(/\(([^)]+)\)/);
+        if (specsMatch) {
+          specs = `(${specsMatch[1]})`;
+        } else {
+          // Add default specs based on weight and whether it's SH or not
+          if (weight === '13.5') {
+            if (isSH) {
+              // SH packs show as Grade A but with (7/8/9) specs
+              specs = '(7/8/9)';
+            } else if (grade === 'B') {
+              specs = '(CL/4/5/6/7/8/9)';
+            } else if (grade === 'A') {
+              // 13.5kg Grade A always has (4/5/6)
+              specs = '(4/5/6)';
+            }
+          }
+          // Other weights (7.2kg, 6kg, 3kg) don't have specs
+        }
+        
+        // Build description
+        description = `Philippine Bananas ${weight} kg Grade ${grade}${specs ? ' ' + specs : ''}`.trim();
+      } else {
+        // Pineapples: "Philippine Pineapples LD {pack}"
+        description = `Philippine Pineapples LD ${record.pack}`;
+      }
       const priceKey = `${record.item}|${record.pack}|${record.supplier || ''}|${record.year}`;
       
       // Calculate unit price based on supplier and year
@@ -497,8 +591,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
             <Image src={logoImage} style={styles.logo} />
             <View style={styles.companyInfo}>
               <Text style={styles.companyName}>AGSOUTH FRUITS PACIFIC BRANCH OFFICE</Text>
-              <Text style={styles.companyAddress}>3rd Floor Unit B, Alpha Building</Text>
-              <Text style={styles.companyAddress}>Lanang Business Park</Text>
+              <Text style={styles.companyAddress}>3rd Floor Unit B, Alpha Building, Lanang Business Park,</Text>
               <Text style={styles.companyAddress}>J.P. Laurel Avenue, Davao City 8000, Philippines</Text>
             </View>
           </View>
@@ -507,7 +600,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
             <View style={styles.invoiceDetailsBox}>
               <View style={styles.invoiceDetailRow}>
                 <Text style={styles.invoiceLabel}>INVOICE #:</Text>
-                <Text style={styles.invoiceDetail}>{invoiceNo}</Text>
+                <Text style={styles.invoiceDetailNumber}>{invoiceNo}</Text>
               </View>
               <View style={[styles.invoiceDetailRow, styles.invoiceDetailRowLast]}>
                 <Text style={styles.invoiceLabel}>DATE:</Text>
@@ -530,7 +623,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
           )}
           {customerName === 'Santito Brands Inc' && (
             <>
-              <Text style={styles.billToText}>[Company Address]</Text>
+              <Text style={styles.billToText}>Km. 7 Lanang Business Park Davao City</Text>
             </>
           )}
         </View>
@@ -657,21 +750,28 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
           </View>
         </View>
 
+        {/* Prepared By and Checked By - Below Beneficiary Details */}
+        <View style={styles.signatureRow}>
+          <View style={styles.signatureBox}>
+            <Text style={styles.preparedBy}>PREPARED BY :</Text>
+            <Text style={styles.preparedByName}>Noel Jay Mallari</Text>
+          </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.checkedBy}>CHECKED BY :</Text>
+            <Text style={styles.checkedByName}>Ma. Levi Perez</Text>
+          </View>
+        </View>
+
         {/* Footer */}
         <View style={styles.footer}>
-          <View style={styles.signatureSection}>
-            <View style={styles.signatureBox}>
-              <Text style={styles.signatureLabel}>PREPARED BY:</Text>
-              <Image src="/Data/MALLARI-SIGN.jpg" style={styles.signatureImage} />
-              <Text style={styles.signatureName}>Noel Jay Mallari</Text>
-            </View>
-            <View style={styles.signatureBox}>
-              <Text style={styles.signatureLabel}>CHECKED BY:</Text>
-              <Image src="/Data/PEREZ-SIGN.jpeg" style={styles.signatureImage} />
-              <Text style={styles.signatureName}>Ma. Levi Perez</Text>
-            </View>
-          </View>
-          <Text style={styles.contactInfo}>Tel. No. (082) 298-2908</Text>
+          {/* Divider line */}
+          <View style={styles.footerDivider} />
+          
+          {/* Address */}
+          <Text style={styles.footerAddress}>
+            Davao Office: 3F Unit B&C Alpha Building, Lanang Business Park, Km. 7 J.P. Laurel Ave., Davao City 8000
+          </Text>
+          <Text style={styles.contactInfo}>Tele Fax No. +63 82 336 1128</Text>
           <Text style={styles.contactInfo}>Email: davao@sharbatlyfruit.com.ph</Text>
         </View>
       </Page>
