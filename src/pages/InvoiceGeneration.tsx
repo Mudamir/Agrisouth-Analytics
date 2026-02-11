@@ -10,12 +10,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
+import { PDFDownloadLink, PDFViewer, pdf, Document, Page } from '@react-pdf/renderer';
 import InvoicePDF from '@/components/invoice/InvoicePDF';
-import { useInvoiceData, useInvoiceNumbers, useSalesPrices } from '@/hooks/useInvoiceData';
+import { useInvoiceData, useInvoiceNumbers, useSalesPrices, usePurchasePrices } from '@/hooks/useInvoiceData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { format, parse } from 'date-fns';
+import { ShippingRecord } from '@/types/shipping';
 
 interface InvoiceGenerationProps {
   onNavigate?: (page: string) => void;
@@ -26,7 +27,6 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
   const [showPreview, setShowPreview] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
 
   // Get available years and weeks
   const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -69,15 +69,15 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
   const { data: invoiceNumbers, isLoading: loadingInvoices } = useInvoiceNumbers(
     selectedYear,
     selectedWeek,
-    searchTerm
+    ''
   );
   const { data: invoiceData, isLoading: loadingData, error } = useInvoiceData(selectedInvoice);
   const { data: salesPrices = new Map() } = useSalesPrices(invoiceData?.records || []);
+  const { data: purchasePrices = new Map() } = usePurchasePrices(invoiceData?.records || []);
 
   const handleClearFilters = () => {
     setSelectedYear(null);
     setSelectedWeek(null);
-    setSearchTerm('');
     setSelectedInvoice(null);
   };
 
@@ -97,7 +97,12 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
     let dateStr = '';
     if (invoiceDate) {
       try {
-        const date = parse(invoiceDate, 'yyyy-MM-dd', new Date());
+        // Try parsing as ISO date first (yyyy-MM-dd)
+        let date = parse(invoiceDate, 'yyyy-MM-dd', new Date());
+        if (isNaN(date.getTime())) {
+          // Try parsing as Date object string
+          date = new Date(invoiceDate);
+        }
         if (!isNaN(date.getTime())) {
           dateStr = format(date, 'yyyyMMdd');
         } else {
@@ -110,6 +115,169 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
       dateStr = format(new Date(), 'yyyyMMdd');
     }
     return `INVOICE_${invoiceNo}_${dateStr}.pdf`;
+  };
+
+  // Download all invoices for the selected week as a single PDF
+  const [downloadingWeek, setDownloadingWeek] = useState(false);
+  
+  const handleDownloadWeek = async () => {
+    if (!selectedYear || !selectedWeek || !invoiceNumbers || invoiceNumbers.length === 0 || !supabase) {
+      return;
+    }
+
+    setDownloadingWeek(true);
+    try {
+      // Helper function to fetch prices
+      const fetchPrices = async (records: any[]) => {
+        const salesMap = new Map<string, number>();
+        const purchaseMap = new Map<string, number>();
+        
+        if (records.length === 0) return { salesMap, purchaseMap };
+
+        const uniqueCombos = Array.from(new Set(
+          records.map(r => ({
+            item: r.item,
+            pack: r.pack,
+            supplier: r.supplier || null,
+            year: r.year,
+            key: `${r.item}|${r.pack}|${r.supplier || ''}|${r.year}`
+          }))
+        ));
+
+        const items = [...new Set(uniqueCombos.map(c => c.item))];
+        const packs = [...new Set(uniqueCombos.map(c => c.pack))];
+        const suppliers = [...new Set(uniqueCombos.map(c => c.supplier).filter(Boolean))];
+        const years = [...new Set(uniqueCombos.map(c => c.year))];
+
+        // Fetch sales prices
+        const { data: salesPrices } = await supabase
+          .from('sales_prices')
+          .select('item, pack, supplier, year, sales_price')
+          .in('item', items)
+          .in('pack', packs)
+          .in('year', years);
+
+        // Fetch purchase prices
+        let purchaseQuery = supabase
+          .from('purchase_prices')
+          .select('item, pack, supplier, year, purchase_price')
+          .in('item', items)
+          .in('pack', packs)
+          .in('year', years);
+        
+        if (suppliers.length > 0) {
+          purchaseQuery = purchaseQuery.in('supplier', suppliers);
+        }
+        const { data: purchasePrices } = await purchaseQuery;
+
+        // Build maps
+        for (const combo of uniqueCombos) {
+          if (combo.supplier) {
+            const salesPrice = salesPrices?.find(
+              p => p.item === combo.item && p.pack === combo.pack && 
+                   p.supplier === combo.supplier && p.year === combo.year
+            );
+            if (salesPrice) salesMap.set(combo.key, salesPrice.sales_price);
+
+            const purchasePrice = purchasePrices?.find(
+              p => p.item === combo.item && p.pack === combo.pack && 
+                   p.supplier === combo.supplier && p.year === combo.year
+            );
+            if (purchasePrice) purchaseMap.set(combo.key, purchasePrice.purchase_price);
+          }
+        }
+
+        return { salesMap, purchaseMap };
+      };
+
+      // Fetch all invoice data
+      const invoiceDataList: Array<{
+        records: ShippingRecord[];
+        invoiceNo: string;
+        invoiceDate: string;
+        salesPrices: Map<string, number>;
+        purchasePrices: Map<string, number>;
+      }> = [];
+
+      for (const invoiceNo of invoiceNumbers) {
+        // Fetch invoice data
+        const { data: records, error } = await supabase
+          .from('shipping_records')
+          .select('*')
+          .eq('invoice_no', invoiceNo)
+          .order('container', { ascending: true });
+
+        if (error || !records || records.length === 0) continue;
+
+        // Transform records
+        const transformedRecords: ShippingRecord[] = records.map((r: any) => ({
+          id: r.id,
+          year: r.year,
+          week: r.week,
+          etd: r.etd,
+          pol: r.pol,
+          item: r.item,
+          destination: r.destination,
+          supplier: r.supplier,
+          sLine: r.s_line,
+          container: r.container,
+          pack: r.pack,
+          lCont: r.l_cont,
+          cartons: r.cartons,
+          type: r.type,
+          eta: r.eta,
+          vessel: r.vessel,
+          invoiceNo: r.invoice_no,
+          invoiceDate: r.invoice_date,
+          customerName: r.customer_name,
+          billingNo: r.billing_no,
+        }));
+
+        // Fetch prices
+        const { salesMap, purchaseMap } = await fetchPrices(transformedRecords);
+
+        invoiceDataList.push({
+          records: transformedRecords,
+          invoiceNo,
+          invoiceDate: transformedRecords[0]?.invoiceDate || '',
+          salesPrices: salesMap,
+          purchasePrices: purchaseMap,
+        });
+      }
+
+      // Create multi-page PDF document with all invoices in one PDF
+      const MultiPageInvoicePDF = () => (
+        <Document>
+          {invoiceDataList.map((invoiceData) => (
+            <InvoicePDF
+              key={invoiceData.invoiceNo}
+              records={invoiceData.records}
+              invoiceNo={invoiceData.invoiceNo}
+              invoiceDate={invoiceData.invoiceDate}
+              salesPrices={invoiceData.salesPrices}
+              purchasePrices={invoiceData.purchasePrices}
+              pageOnly={true}
+            />
+          ))}
+        </Document>
+      );
+
+      // Generate and download single PDF
+      const doc = <MultiPageInvoicePDF />;
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `INVOICES_Week${selectedWeek}_${selectedYear}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading week invoices:', error);
+    } finally {
+      setDownloadingWeek(false);
+    }
   };
 
   return (
@@ -212,33 +380,9 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
                   </div>
                 </div>
 
-                {/* Search Input */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Search Invoice Number</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      type="text"
-                      placeholder="Type invoice number to search..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    {searchTerm && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSearchTerm('')}
-                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
 
                 {/* Clear Filters */}
-                {(selectedYear || selectedWeek || searchTerm) && (
+                {(selectedYear || selectedWeek) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -276,7 +420,7 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
                       ) : (
                         <div className="p-2 text-center text-sm text-muted-foreground">
                           No invoice numbers found
-                          {(selectedYear || selectedWeek || searchTerm) && (
+                          {(selectedYear || selectedWeek) && (
                             <div className="mt-1 text-xs">Try adjusting your filters</div>
                           )}
                         </div>
@@ -289,6 +433,28 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
                     </p>
                   )}
                 </div>
+
+                {/* Download Week Button */}
+                {selectedYear && selectedWeek && invoiceNumbers && invoiceNumbers.length > 0 && (
+                  <Button
+                    onClick={handleDownloadWeek}
+                    disabled={downloadingWeek}
+                    className="w-full gap-2 bg-gradient-to-r from-primary via-primary/95 to-secondary hover:from-primary/90 hover:via-primary/85 hover:to-secondary/90 text-primary-foreground font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    size="lg"
+                  >
+                    {downloadingWeek ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Generating PDF with {invoiceNumbers.length} invoice{invoiceNumbers.length !== 1 ? 's' : ''}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-5 h-5" />
+                        <span>Download All Invoices - Week {selectedWeek} ({invoiceNumbers.length} invoice{invoiceNumbers.length !== 1 ? 's' : ''})</span>
+                      </>
+                    )}
+                  </Button>
+                )}
 
                 {/* Loading State */}
                 {loadingData && selectedInvoice && (
@@ -379,6 +545,7 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
                               invoiceNo={invoiceData.invoiceNo}
                               invoiceDate={invoiceData.invoiceDate}
                               salesPrices={salesPrices}
+                              purchasePrices={purchasePrices}
                             />
                           }
                           fileName={getInvoiceFileName(invoiceData.invoiceNo, invoiceData.invoiceDate)}
@@ -432,6 +599,7 @@ const InvoiceGeneration: React.FC<InvoiceGenerationProps> = ({ onNavigate }) => 
                         invoiceNo={invoiceData.invoiceNo}
                         invoiceDate={invoiceData.invoiceDate}
                         salesPrices={salesPrices}
+                        purchasePrices={purchasePrices}
                       />
                     </PDFViewer>
                   </div>

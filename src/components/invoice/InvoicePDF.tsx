@@ -95,11 +95,11 @@ const styles = StyleSheet.create({
   },
   // Bill To Section
   billToSection: {
-    marginBottom: 8,
+    marginBottom: 5,
     backgroundColor: '#F8F9FA',
     border: '1pt solid #E0E0E0',
     borderRadius: 4,
-    padding: 6,
+    padding: 5,
   },
   billToHeader: {
     fontSize: 8,
@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
   },
   // Items Table
   table: {
-    marginTop: 6,
-    marginBottom: 8,
+    marginTop: 5,
+    marginBottom: 5,
     border: '1pt solid #E0E0E0',
   },
   tableHeader: {
@@ -177,9 +177,9 @@ const styles = StyleSheet.create({
   },
   // Totals Section
   totalsSection: {
-    marginTop: 5,
+    marginTop: 4,
     alignItems: 'flex-end',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   totalRow: {
     flexDirection: 'row',
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
   // Shipping Details - Single Column Clean Layout (Minimized)
   detailsSection: {
-    marginTop: 5,
+    marginTop: 4,
     border: '1pt solid #E0E0E0',
     borderRadius: 3,
     overflow: 'hidden',
@@ -208,20 +208,20 @@ const styles = StyleSheet.create({
   detailsHeader: {
     backgroundColor: '#19432a',
     color: '#FFFFFF',
-    padding: 4,
-    fontSize: 8,
+    padding: 2,
+    fontSize: 7,
     fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   detailsContent: {
-    padding: 5,
+    padding: 3,
     backgroundColor: '#FFFFFF',
   },
   detailRow: {
     flexDirection: 'row',
-    padding: 3,
-    marginBottom: 1,
+    padding: 1.5,
+    marginBottom: 0.5,
     width: '100%',
     borderBottom: '1pt solid #F0F0F0',
     alignItems: 'center',
@@ -232,11 +232,11 @@ const styles = StyleSheet.create({
   },
   detailRowFull: {
     flexDirection: 'row',
-    padding: 3,
-    marginTop: 2,
+    padding: 2,
+    marginTop: 1,
     width: '100%',
     borderTop: '1pt solid #E0E0E0',
-    paddingTop: 4,
+    paddingTop: 2,
     alignItems: 'flex-start',
   },
   detailLabel: {
@@ -253,19 +253,70 @@ const styles = StyleSheet.create({
     fontWeight: 'normal',
   },
   containerList: {
-    marginTop: 2,
+    marginTop: 1,
   },
   containerItem: {
     fontSize: 7,
     color: '#333333',
-    marginBottom: 1,
+    marginBottom: 0.5,
     paddingLeft: 0,
-    lineHeight: 1.3,
+    lineHeight: 1.2,
+  },
+  // Beneficiary Section
+  beneficiarySection: {
+    marginTop: 4,
+    border: '1pt solid #E0E0E0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  beneficiaryHeader: {
+    backgroundColor: '#19432a',
+    color: '#FFFFFF',
+    padding: 3,
+    fontSize: 7,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  beneficiaryContent: {
+    padding: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  beneficiaryRow: {
+    flexDirection: 'row',
+    padding: 2,
+    marginBottom: 0.5,
+    width: '100%',
+    borderBottom: '1pt solid #F0F0F0',
+    alignItems: 'flex-start',
+  },
+  beneficiaryRowLast: {
+    borderBottom: 'none',
+    marginBottom: 0,
+  },
+  beneficiaryLabel: {
+    width: '35%',
+    fontWeight: 'bold',
+    fontSize: 7,
+    color: '#333333',
+    marginRight: 6,
+  },
+  beneficiaryValue: {
+    width: '65%',
+    fontSize: 7,
+    color: '#333333',
+    lineHeight: 1.2,
+  },
+  beneficiaryDivider: {
+    marginTop: 3,
+    marginBottom: 3,
+    borderTop: '1pt solid #E0E0E0',
+    paddingTop: 3,
   },
   // Footer
   footer: {
-    marginTop: 8,
-    paddingTop: 6,
+    marginTop: 4,
+    paddingTop: 4,
     borderTop: '1pt solid #E0E0E0',
     fontSize: 7,
     color: '#666666',
@@ -277,15 +328,56 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   preparedByName: {
-    marginBottom: 4,
+    marginBottom: 3,
     color: '#333333',
     fontSize: 8,
     marginLeft: 0,
+  },
+  checkedBy: {
+    marginTop: 3,
+    marginBottom: 2,
+    fontWeight: 'bold',
+    color: '#333333',
+    fontSize: 8,
+  },
+  checkedByName: {
+    marginBottom: 2,
+    color: '#333333',
+    fontSize: 8,
+    marginLeft: 0,
+  },
+  signatureSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  signatureBox: {
+    width: '45%',
+    alignItems: 'flex-start',
+  },
+  signatureImage: {
+    width: 80,
+    height: 40,
+    objectFit: 'contain',
+    marginBottom: 3,
+  },
+  signatureLabel: {
+    fontSize: 7,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 2,
+  },
+  signatureName: {
+    fontSize: 7,
+    color: '#333333',
+    marginBottom: 0,
   },
   contactInfo: {
     fontSize: 7,
     color: '#666666',
     marginBottom: 1,
+    marginTop: 4,
   },
 });
 
@@ -294,6 +386,8 @@ interface InvoicePDFProps {
   invoiceNo: string;
   invoiceDate: string;
   salesPrices?: Map<string, number>; // Map of "item|pack|supplier|year" -> price
+  purchasePrices?: Map<string, number>; // Map of "item|pack|supplier|year" -> price
+  pageOnly?: boolean; // If true, returns only Page content without Document wrapper
 }
 
 interface GroupedItem {
@@ -303,7 +397,7 @@ interface GroupedItem {
   amount: number;
 }
 
-const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate, salesPrices = new Map() }) => {
+const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate, salesPrices = new Map(), purchasePrices = new Map(), pageOnly = false }) => {
   if (!records || records.length === 0) {
     return null;
   }
@@ -332,7 +426,17 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
     records.forEach((record) => {
       const description = `Philippine ${record.item === 'BANANAS' ? 'Bananas' : 'Pineapples'} ${record.pack}`;
       const priceKey = `${record.item}|${record.pack}|${record.supplier || ''}|${record.year}`;
-      const unitPrice = salesPrices.get(priceKey) || 0;
+      
+      // Calculate unit price based on supplier and year
+      let unitPrice = salesPrices.get(priceKey) || 0;
+      
+      // For LAPANDAY and MARSMAN in 2026, unit price = sales - purchase
+      const supplier = (record.supplier || '').toUpperCase();
+      if ((supplier === 'LAPANDAY' || supplier === 'MARSMAN') && record.year === 2026) {
+        const salesPrice = salesPrices.get(priceKey) || 0;
+        const purchasePrice = purchasePrices.get(priceKey) || 0;
+        unitPrice = salesPrice - purchasePrice;
+      }
       
       if (!items[description]) {
         items[description] = {
@@ -348,7 +452,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
     });
 
     return Object.values(items);
-  }, [records, salesPrices]);
+  }, [records, salesPrices, purchasePrices]);
 
   const total = groupedItems.reduce((sum, item) => sum + item.amount, 0);
 
@@ -385,9 +489,8 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
     }).format(amount);
   };
 
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
+  const renderPageContent = () => (
+    <Page size="A4" style={styles.page}>
         {/* Top Header with Logo and Invoice Info */}
         <View style={styles.topHeader}>
           <View style={styles.logoSection}>
@@ -520,14 +623,67 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
           </View>
         </View>
 
+        {/* Beneficiary Details */}
+        <View style={styles.beneficiarySection}>
+          <View style={styles.beneficiaryHeader}>
+            <Text>BENEFICIARY DETAILS</Text>
+          </View>
+          <View style={styles.beneficiaryContent}>
+            {/* AGsouth Fruits Pacific Branch Office */}
+            <View style={styles.beneficiaryRow}>
+              <Text style={styles.beneficiaryLabel}>Beneficiary's Name:</Text>
+              <Text style={styles.beneficiaryValue}>Agsouth Fruits Pacific Branch Office</Text>
+            </View>
+            <View style={styles.beneficiaryRow}>
+              <Text style={styles.beneficiaryLabel}>Beneficiary's Address:</Text>
+              <Text style={styles.beneficiaryValue}>Lanang Business Park, Km. 7 J.P. Laurel Ave., Davao City</Text>
+            </View>
+            <View style={styles.beneficiaryRow}>
+              <Text style={styles.beneficiaryLabel}>Beneficiary's Account No.:</Text>
+              <Text style={styles.beneficiaryValue}>300002133338</Text>
+            </View>
+            <View style={styles.beneficiaryRow}>
+              <Text style={styles.beneficiaryLabel}>Beneficiary Bank:</Text>
+              <Text style={styles.beneficiaryValue}>EastWest Banking Corporation</Text>
+            </View>
+            <View style={styles.beneficiaryRow}>
+              <Text style={styles.beneficiaryLabel}>Swift Code:</Text>
+              <Text style={styles.beneficiaryValue}>EWBCPHMM</Text>
+            </View>
+            <View style={[styles.beneficiaryRow, styles.beneficiaryRowLast]}>
+              <Text style={styles.beneficiaryLabel}>Branch & Bank Address:</Text>
+              <Text style={styles.beneficiaryValue}>Davao Bajada Branch, GF Uykimpang Building J.P Laurel Avenue Davao City</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.preparedBy}>PREPARED BY:</Text>
-          <Text style={styles.preparedByName}>Noel Jay Mallari</Text>
+          <View style={styles.signatureSection}>
+            <View style={styles.signatureBox}>
+              <Text style={styles.signatureLabel}>PREPARED BY:</Text>
+              <Image src="/Data/MALLARI-SIGN.jpg" style={styles.signatureImage} />
+              <Text style={styles.signatureName}>Noel Jay Mallari</Text>
+            </View>
+            <View style={styles.signatureBox}>
+              <Text style={styles.signatureLabel}>CHECKED BY:</Text>
+              <Image src="/Data/PEREZ-SIGN.jpeg" style={styles.signatureImage} />
+              <Text style={styles.signatureName}>Ma. Levi Perez</Text>
+            </View>
+          </View>
           <Text style={styles.contactInfo}>Tel. No. (082) 298-2908</Text>
           <Text style={styles.contactInfo}>Email: davao@sharbatlyfruit.com.ph</Text>
         </View>
       </Page>
+  );
+
+  if (pageOnly) {
+    return renderPageContent();
+  }
+
+  return (
+    <Document>
+      {renderPageContent()}
     </Document>
   );
 };

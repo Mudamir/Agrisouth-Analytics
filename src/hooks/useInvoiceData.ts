@@ -218,3 +218,77 @@ export const useSalesPrices = (records: ShippingRecord[]) => {
   });
 };
 
+// Hook to fetch purchase prices for invoice items
+export const usePurchasePrices = (records: ShippingRecord[]) => {
+  return useQuery({
+    queryKey: ['purchase-prices', records.map(r => `${r.item}-${r.pack}-${r.supplier}-${r.year}`).join(',')],
+    queryFn: async (): Promise<Map<string, number>> => {
+      if (!supabase || records.length === 0) {
+        return new Map();
+      }
+
+      try {
+        const priceMap = new Map<string, number>();
+        
+        // Get unique combinations
+        const uniqueCombos = Array.from(new Set(
+          records.map(r => ({
+            item: r.item,
+            pack: r.pack,
+            supplier: r.supplier || null,
+            year: r.year,
+            key: `${r.item}|${r.pack}|${r.supplier || ''}|${r.year}`
+          }))
+        ));
+
+        // Get unique items, packs, suppliers, years
+        const items = [...new Set(uniqueCombos.map(c => c.item))];
+        const packs = [...new Set(uniqueCombos.map(c => c.pack))];
+        const suppliers = [...new Set(uniqueCombos.map(c => c.supplier).filter(Boolean))];
+        const years = [...new Set(uniqueCombos.map(c => c.year))];
+
+        // Batch fetch all purchase prices
+        let query = supabase
+          .from('purchase_prices')
+          .select('item, pack, supplier, year, purchase_price')
+          .in('item', items)
+          .in('pack', packs)
+          .in('year', years);
+
+        if (suppliers.length > 0) {
+          query = query.in('supplier', suppliers);
+        }
+
+        const { data: allPrices, error } = await query;
+
+        if (error) {
+          logger.safeError('Error fetching purchase prices', error);
+          return new Map();
+        }
+
+        // Build price map
+        for (const combo of uniqueCombos) {
+          if (combo.supplier) {
+            const price = allPrices?.find(
+              p => p.item === combo.item && 
+                   p.pack === combo.pack && 
+                   p.supplier === combo.supplier && 
+                   p.year === combo.year
+            );
+            if (price) {
+              priceMap.set(combo.key, price.purchase_price);
+            }
+          }
+        }
+
+        return priceMap;
+      } catch (err) {
+        logger.safeError('Error fetching purchase prices', err);
+        return new Map();
+      }
+    },
+    enabled: records.length > 0 && !!supabase,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+};
+
