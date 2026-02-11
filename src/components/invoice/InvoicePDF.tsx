@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     padding: 2,
     marginTop: 0,
     width: '100%',
-    borderTop: '1pt solid #E0E0E0',
+    borderTop: 'none',
     paddingTop: 2,
     alignItems: 'flex-start',
   },
@@ -366,24 +366,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   preparedBy: {
-    marginBottom: 1,
+    marginBottom: 20,
     fontWeight: 'bold',
     color: '#333333',
     fontSize: 8,
   },
   preparedByName: {
     marginBottom: 0,
+    marginTop: 0,
     color: '#333333',
     fontSize: 8,
   },
   checkedBy: {
-    marginBottom: 1,
+    marginBottom: 20,
     fontWeight: 'bold',
     color: '#333333',
     fontSize: 8,
   },
   checkedByName: {
     marginBottom: 0,
+    marginTop: 0,
     color: '#333333',
     fontSize: 8,
   },
@@ -545,7 +547,36 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
       items[description].amount = items[description].qty * items[description].unitPrice;
     });
 
-    return Object.values(items);
+    // Sort items: Pineapples ascending, Bananas descending
+    const sortedItems = Object.values(items).sort((a, b) => {
+      const aIsPineapple = a.description.toUpperCase().includes('PINEAPPLE');
+      const bIsPineapple = b.description.toUpperCase().includes('PINEAPPLE');
+      
+      // If both are pineapples, sort ascending by pack (extract number from pack like 8c, 9c)
+      if (aIsPineapple && bIsPineapple) {
+        // Extract pack number from description (e.g., "Philippine Pineapples LD 8c" -> 8)
+        const aMatch = a.description.match(/(\d+)\s*c/i);
+        const bMatch = b.description.match(/(\d+)\s*c/i);
+        const aNum = aMatch ? parseInt(aMatch[1]) : 0;
+        const bNum = bMatch ? parseInt(bMatch[1]) : 0;
+        return aNum - bNum; // Ascending
+      }
+      
+      // If both are bananas, sort descending by weight
+      if (!aIsPineapple && !bIsPineapple) {
+        // Extract weight from description (e.g., "Philippine Bananas 13.5 kg" -> 13.5)
+        const aMatch = a.description.match(/(\d+\.?\d*)\s*kg/i);
+        const bMatch = b.description.match(/(\d+\.?\d*)\s*kg/i);
+        const aWeight = aMatch ? parseFloat(aMatch[1]) : 0;
+        const bWeight = bMatch ? parseFloat(bMatch[1]) : 0;
+        return bWeight - aWeight; // Descending
+      }
+      
+      // If one is pineapple and one is banana, keep original order
+      return 0;
+    });
+
+    return sortedItems;
   }, [records, salesPrices, purchasePrices]);
 
   const total = groupedItems.reduce((sum, item) => sum + item.amount, 0);
@@ -616,9 +647,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
           <Text style={styles.billToCustomerName}>{customerName || 'N/A'}</Text>
           {customerName === 'Mohammed Abdallah Sharbatly Co Ltd' && (
             <>
-              <Text style={styles.billToText}>P.O. Box 4150</Text>
-              <Text style={styles.billToText}>Jeddah 21491</Text>
-              <Text style={styles.billToText}>Saudi Arabia</Text>
+              <Text style={styles.billToText}>P.O. Box 4150, Jeddah 21491, Saudi Arabia</Text>
             </>
           )}
           {customerName === 'Santito Brands Inc' && (
@@ -771,8 +800,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ records, invoiceNo, invoiceDate
           <Text style={styles.footerAddress}>
             Davao Office: 3F Unit B&C Alpha Building, Lanang Business Park, Km. 7 J.P. Laurel Ave., Davao City 8000
           </Text>
-          <Text style={styles.contactInfo}>Tele Fax No. +63 82 336 1128</Text>
-          <Text style={styles.contactInfo}>Email: davao@sharbatlyfruit.com.ph</Text>
+          <Text style={styles.contactInfo}>Tele Fax No. +63 82 336 1128 | Email: davao@sharbatlyfruit.com.ph</Text>
         </View>
       </Page>
   );
