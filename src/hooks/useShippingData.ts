@@ -527,10 +527,10 @@ export function useShippingData() {
 
       logger.debug('Attempting to delete record:', id);
 
-      // First, fetch the record details before deleting (for audit log)
+      // First, fetch the complete record details before deleting (for audit log)
       const { data: recordToDelete, error: fetchError } = await supabase
         .from('shipping_records')
-        .select('id, pack, container, cartons, etd, supplier, item, year, week, type')
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -547,35 +547,71 @@ export function useShippingData() {
       }
 
       // Get current user ID for logging
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       const userId = user?.id || null;
 
+      if (userError) {
+        logger.safeError('Failed to get user for activity log', userError);
+      }
+
       // Manually log activity to data_activity_log before deletion
+      // This ensures every record deletion is tracked
       if (userId && recordToDelete) {
-        await supabase
-          .from('data_activity_log')
-          .insert({
-            action: 'DELETE',
-            record_id: recordToDelete.id,
-            user_id: userId,
-            action_timestamp: new Date().toISOString(),
-            // Denormalized fields for quick access
-            pack: recordToDelete.pack,
-            container: recordToDelete.container,
-            cartons: recordToDelete.cartons,
-            etd: recordToDelete.etd,
-            item: recordToDelete.item,
-            supplier: recordToDelete.supplier,
-            year: recordToDelete.year,
-            week: recordToDelete.week,
-            type: recordToDelete.type,
-            // Store full snapshot in JSONB
-            snapshot_data: recordToDelete,
-          })
-          .catch((logError) => {
+        try {
+          const { error: logError } = await supabase
+            .from('data_activity_log')
+            .insert({
+              action: 'DELETE',
+              record_id: recordToDelete.id,
+              user_id: userId,
+              action_timestamp: new Date().toISOString(),
+              // Denormalized fields for quick access
+              pack: recordToDelete.pack || null,
+              container: recordToDelete.container || null,
+              cartons: recordToDelete.cartons || 0,
+              etd: recordToDelete.etd || null,
+              item: recordToDelete.item || null,
+              supplier: recordToDelete.supplier || null,
+              year: recordToDelete.year || null,
+              week: recordToDelete.week || null,
+              type: recordToDelete.type || null,
+              // Store complete snapshot in JSONB for full record history
+              snapshot_data: {
+                id: recordToDelete.id,
+                year: recordToDelete.year,
+                week: recordToDelete.week,
+                etd: recordToDelete.etd,
+                eta: recordToDelete.eta,
+                pol: recordToDelete.pol,
+                item: recordToDelete.item,
+                destination: recordToDelete.destination,
+                supplier: recordToDelete.supplier,
+                s_line: recordToDelete.s_line,
+                container: recordToDelete.container,
+                pack: recordToDelete.pack,
+                l_cont: recordToDelete.l_cont,
+                cartons: recordToDelete.cartons,
+                type: recordToDelete.type,
+                customer_name: recordToDelete.customer_name,
+                invoice_no: recordToDelete.invoice_no,
+                invoice_date: recordToDelete.invoice_date,
+                vessel: recordToDelete.vessel,
+                billing_no: recordToDelete.billing_no,
+              },
+            });
+
+          if (logError) {
             // Log error but don't fail the main operation
-            logger.safeError('Failed to log deletion activity', logError);
-          });
+            logger.safeError('Failed to log deletion activity to data_activity_log', logError);
+          } else {
+            logger.info('Successfully logged deletion activity for record:', recordToDelete.id);
+          }
+        } catch (logError: any) {
+          // Log error but don't fail the main operation
+          logger.safeError('Exception while logging deletion activity', logError);
+        }
+      } else if (!userId) {
+        logger.warn('Cannot log deletion activity: No user ID available');
       }
 
       // Delete the record
