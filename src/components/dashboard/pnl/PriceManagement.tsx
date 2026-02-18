@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, DollarSign, ShoppingCart, Filter, Lock } from 'lucide-react';
+import { Settings, DollarSign, ShoppingCart, Filter, Lock, TrendingUp, Calendar, Package, Loader2, Sparkles, Banana, Coins } from 'lucide-react';
+import { PineappleIcon } from '../PineappleIcon';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -60,9 +61,74 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
   // Get unique packs - ONLY from shipping_records for the selected year/fruit
   // This ensures we only show packs that actually have data (cartons) for that combination
   const packs = useMemo(() => {
-    // Only use packs from shipping_records - no fallback to prices or props
-    // If no shipping data exists for this year/fruit, show empty (correct behavior)
-    return [...availablePacksFromData].sort();
+    // Custom sort function for banana packs: 13.5 KG B -> 13.5 KG A -> 7.2 KG -> 6 KG -> 3 KG -> 18 KG
+    const getPackSortOrder = (pack: string): number => {
+      const packUpper = pack.toUpperCase().trim();
+      
+      // Check if it's a pineapple pack (pattern: number followed by 'C', e.g., 7C, 8C, 9C)
+      const pineappleMatch = packUpper.match(/^(\d+)C$/);
+      if (pineappleMatch) {
+        const number = parseInt(pineappleMatch[1], 10);
+        return number; // Pineapples: ascending order (7C, 8C, 9C, etc.)
+      }
+      
+      // Banana pack sorting - Order: 13.5 KG A (first) -> 13.5 KG SH -> 13.5 KG B -> 7.2 KG -> 6 KG -> 3 KG -> 18 KG (last)
+      // 1. 13.5 KG A (first)
+      if (packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
+          (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH')) ||
+          (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
+        return 1;
+      }
+      // 2. 13.5 KG SH
+      if (packUpper === '13.5 KG SH' || packUpper === '13KG SH' || packUpper === '13 KG SH' ||
+          (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H'))) ||
+          (packUpper.includes('13') && packUpper.includes('KG') && (packUpper.includes('SH') || packUpper.includes('S/H')))) {
+        return 2;
+      }
+      // 3. 13.5 KG B
+      if (packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
+          (packUpper.includes('13.5') && packUpper.includes('B')) ||
+          (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('B'))) {
+        return 3;
+      }
+      // 4. 7KG or 7.2 KG A
+      if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
+          (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
+        return 4;
+      }
+      // 5. 6KG
+      if (packUpper === '6KG' || (packUpper.match(/^6\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('16') && !packUpper.includes('26'))) {
+        return 5;
+      }
+      // 6. 3KG or 3 KG A
+      if (packUpper === '3KG' || packUpper === '3 KG A' || 
+          (packUpper.match(/^3\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('13 KG'))) {
+        return 6;
+      }
+      // 7. 18KG (last)
+      if (packUpper === '18KG' || packUpper === '18 KG A' || packUpper.includes('18 KG')) {
+        return 7;
+      }
+      
+      // Default: sort alphabetically for any other packs
+      return 999;
+    };
+    
+    // Sort packs using custom order
+    return [...availablePacksFromData].sort((a, b) => {
+      const orderA = getPackSortOrder(a);
+      const orderB = getPackSortOrder(b);
+      
+      // If both have defined order, sort by order
+      if (orderA !== 999 && orderB !== 999) {
+        return orderA - orderB;
+      }
+      // If only one has defined order, prioritize it
+      if (orderA !== 999) return -1;
+      if (orderB !== 999) return 1;
+      // If neither has defined order, sort alphabetically
+      return a.localeCompare(b);
+    });
   }, [availablePacksFromData]);
 
   // Get unique suppliers - ONLY from shipping_records for the selected year/fruit
@@ -809,99 +875,166 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
             Manage Prices
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-7xl max-h-[90vh]">
-          <DialogHeader className="pb-3 border-b border-border">
-            <DialogTitle className="flex items-center gap-2 text-xl font-heading">
-              <Settings className="w-5 h-5 text-primary" />
-              Price Management
-            </DialogTitle>
+        <DialogContent className="max-w-7xl max-h-[90vh] p-0 gap-0">
+          {/* Premium Header with Gradient */}
+          <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-primary/5 via-primary/3 to-secondary/5 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center shadow-sm">
+                  <Settings className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <DialogTitle className="flex items-center gap-2 text-2xl font-heading font-bold text-foreground">
+                    Price Management
+                  </DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Configure sales and purchase prices by pack and supplier
+                  </p>
+                </div>
+              </div>
+              {!isAdmin && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/60 border border-border/50 rounded-lg">
+                  <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">Read Only</span>
+                </div>
+              )}
+            </div>
           </DialogHeader>
           
-          {/* Filters - Compact Design */}
-          <div className="flex items-center gap-3 px-3 py-2.5 bg-muted/40 rounded-lg border border-border/50">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            <div className="flex items-center gap-2">
-              <Label htmlFor="fruit-filter" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Fruit:
-              </Label>
-              <Select value={filterFruit} onValueChange={(v) => setFilterFruit(v as FruitType)}>
-                <SelectTrigger id="fruit-filter" className="w-36 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BANANAS">Bananas</SelectItem>
-                  <SelectItem value="PINEAPPLES">Pineapples</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Label htmlFor="year-filter" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Year:
-              </Label>
-              <Select 
-                value={filterYear.toString()} 
-                onValueChange={(v) => setFilterYear(parseInt(v))}
-              >
-                <SelectTrigger id="year-filter" className="w-28 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map(year => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex-1" />
-            
-            <div className="text-[10px] text-muted-foreground font-medium">
-              {filterYear} prices
+          {/* Enhanced Filters Section */}
+          <div className="px-6 pt-4 pb-3 bg-muted/20 border-b border-border/50">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-background border border-border/50">
+                  <Filter className="w-4 h-4 text-primary" />
+                </div>
+                <Label className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                  Fruit
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant={filterFruit === 'BANANAS' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterFruit('BANANAS')}
+                    className={cn(
+                      "h-9 px-4 gap-2 transition-all duration-200",
+                      filterFruit === 'BANANAS' 
+                        ? "bg-primary text-primary-foreground shadow-sm" 
+                        : "hover:bg-primary/10"
+                    )}
+                  >
+                    <Banana className="w-4 h-4" />
+                    <span className="text-sm font-medium">Bananas</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={filterFruit === 'PINEAPPLES' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterFruit('PINEAPPLES')}
+                    className={cn(
+                      "h-9 px-4 gap-2 transition-all duration-200",
+                      filterFruit === 'PINEAPPLES' 
+                        ? "bg-primary text-primary-foreground shadow-sm" 
+                        : "hover:bg-primary/10"
+                    )}
+                  >
+                    <PineappleIcon className="w-4 h-4" />
+                    <span className="text-sm font-medium">Pineapples</span>
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-background border border-border/50">
+                  <Calendar className="w-4 h-4 text-primary" />
+                </div>
+                <Label htmlFor="year-filter" className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                  Year
+                </Label>
+                <Select 
+                  value={filterYear.toString()} 
+                  onValueChange={(v) => setFilterYear(parseInt(v))}
+                >
+                  <SelectTrigger id="year-filter" className="w-32 h-9 text-sm font-medium border-border/60">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map(year => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex-1" />
+              
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-lg">
+                <DollarSign className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-semibold text-primary">
+                  {filterYear} Pricing
+                </span>
+              </div>
             </div>
           </div>
           
-          <ScrollArea className="max-h-[68vh] pr-4">
+          <ScrollArea className="max-h-[calc(90vh-200px)] px-6 py-4">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-muted-foreground">Loading prices...</p>
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">Loading prices...</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Fetching data from database</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* Sales Prices Section */}
-                <div className="bg-card border border-border rounded-lg shadow-sm">
-                  {/* Compact Header */}
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-primary" />
-                      <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Sales Prices</h3>
-                      {!isAdmin && (
-                        <Lock className="w-3 h-3 text-muted-foreground" title="Read-only: Admin only" />
-                      )}
+              <div className="space-y-6">
+                {/* Sales Prices Section - Premium Design */}
+                <div className="bg-gradient-to-br from-card to-card/95 border border-border/60 rounded-xl shadow-lg overflow-hidden">
+                  {/* Enhanced Header */}
+                  <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
+                        <DollarSign className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
+                          Sales Prices
+                          {!isAdmin && (
+                            <Lock className="w-3.5 h-3.5 text-muted-foreground" title="Read-only: Admin only" />
+                          )}
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          USD per carton • Varies by pack & supplier {isAdmin && '• Click pack name to bulk edit'}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
-                      USD per carton • Varies by pack & supplier {isAdmin && '• Click pack to set all'}
-                      {!isAdmin && '• Read-only'}
-                    </span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/20 rounded-lg">
+                      <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
+                        Revenue
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-muted/50 border-b border-border h-8">
-                          <TableHead className="w-32 text-[10px] font-semibold py-1.5 px-2 bg-muted/60 sticky left-0 z-20 border-r border-border">
-                            Pack
+                        <TableRow className="bg-muted/40 border-b-2 border-border h-10">
+                          <TableHead className="w-36 text-xs font-bold py-3 px-4 bg-gradient-to-r from-muted/80 to-muted/40 sticky left-0 z-20 border-r-2 border-border/60 shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-3.5 h-3.5 text-primary" />
+                              <span>Pack</span>
+                            </div>
                           </TableHead>
                           {suppliers.length === 0 ? (
-                            <TableHead className="text-center text-[10px] py-1.5 px-2">
-                              <span className="text-muted-foreground">No suppliers</span>
+                            <TableHead className="text-center text-xs py-3 px-4">
+                              <span className="text-muted-foreground font-medium">No suppliers available</span>
                           </TableHead>
                           ) : (
                             suppliers.map(supplier => (
-                              <TableHead key={supplier} className="text-right text-[10px] font-semibold min-w-[95px] py-1.5 px-2 whitespace-nowrap">
-                                <div className="truncate" title={supplier}>{supplier}</div>
+                              <TableHead key={supplier} className="text-right text-xs font-bold min-w-[110px] py-3 px-4 whitespace-nowrap bg-muted/20">
+                                <div className="truncate font-semibold" title={supplier}>{supplier}</div>
                               </TableHead>
                             ))
                           )}
@@ -910,26 +1043,38 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                       <TableBody>
                         {packs.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={suppliers.length + 1} className="text-center text-xs text-muted-foreground py-6">
-                              No packs available
+                            <TableCell colSpan={suppliers.length + 1} className="text-center py-12">
+                              <div className="flex flex-col items-center gap-2">
+                                <Package className="w-8 h-8 text-muted-foreground/40" />
+                                <p className="text-sm font-medium text-muted-foreground">No packs available</p>
+                                <p className="text-xs text-muted-foreground/70">No shipping data found for this year and fruit combination</p>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ) : (
-                          packs.map(pack => (
-                              <TableRow key={pack} className="hover:bg-muted/5 border-b border-border/50 transition-colors duration-100">
+                          packs.map((pack, packIndex) => (
+                              <TableRow key={pack} className={cn(
+                                "hover:bg-primary/3 border-b border-border/40 transition-all duration-200",
+                                packIndex % 2 === 0 ? "bg-card" : "bg-muted/10"
+                              )}>
                               <TableCell 
                                 onClick={isAdmin ? () => setEditingBulkSalesPrice({ pack, price: 0 }) : undefined}
                                 className={cn(
-                                  "font-semibold text-[11px] py-1.5 px-2 bg-muted/30 border-r border-border sticky left-0 z-10 transition-colors",
-                                  isAdmin ? "cursor-pointer hover:bg-primary/10" : "cursor-not-allowed opacity-75"
+                                  "font-bold text-xs py-3 px-4 bg-gradient-to-r from-muted/50 to-muted/20 border-r-2 border-border/60 sticky left-0 z-10 transition-all duration-200",
+                                  isAdmin ? "cursor-pointer hover:bg-primary/15 hover:shadow-sm group" : "cursor-not-allowed opacity-60"
                                 )}
                                 title={isAdmin ? `Click to set same price for all suppliers: ${pack}` : 'Only administrators can edit prices'}
                               >
-                                {pack}
+                                <div className="flex items-center gap-2">
+                                  <span>{pack}</span>
+                                  {isAdmin && (
+                                    <Sparkles className="w-3 h-3 text-primary/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  )}
+                                </div>
                               </TableCell>
                               {suppliers.length === 0 ? (
-                                <TableCell colSpan={1} className="text-center text-xs text-muted-foreground py-4">
-                                  No suppliers
+                                <TableCell colSpan={1} className="text-center py-8">
+                                  <span className="text-xs text-muted-foreground">No suppliers</span>
                                 </TableCell>
                               ) : (
                                 suppliers.map(supplier => {
@@ -944,16 +1089,18 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                                         price: price?.sales_price || 0
                                       }) : undefined}
                                       className={cn(
-                                        "text-right text-[11px] py-1.5 px-2 transition-all duration-100 whitespace-nowrap",
-                                        isAdmin ? "cursor-pointer hover:bg-primary/8" : "cursor-not-allowed opacity-75",
-                                        hasPrice && "font-medium"
+                                        "text-right text-xs py-3 px-4 transition-all duration-200 whitespace-nowrap",
+                                        isAdmin ? "cursor-pointer hover:bg-primary/10 hover:shadow-sm" : "cursor-not-allowed opacity-60",
+                                        hasPrice && "font-semibold"
                                       )}
                                       title={isAdmin ? `Click to edit: ${pack} - ${supplier}` : 'Only administrators can edit prices'}
                                     >
                                       {hasPrice ? (
-                                        <span className="text-primary font-semibold">${price.sales_price.toFixed(2)}</span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
+                                          ${price.sales_price.toFixed(2)}
+                                        </span>
                                       ) : (
-                                        <span className="text-muted-foreground text-[10px]">-</span>
+                                        <span className="text-muted-foreground/50 text-xs font-medium">—</span>
                                       )}
                                 </TableCell>
                             );
@@ -967,38 +1114,52 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                   </div>
                 </div>
 
-                {/* Purchase Prices Section */}
-                <div className="bg-card border border-border rounded-lg shadow-sm">
-                  {/* Compact Header */}
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4 text-accent" />
-                      <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Purchase Prices</h3>
-                      {!isAdmin && (
-                        <Lock className="w-3 h-3 text-muted-foreground" title="Read-only: Admin only" />
-                      )}
+                {/* Purchase Prices Section - Premium Design */}
+                <div className="bg-gradient-to-br from-card to-card/95 border border-border/60 rounded-xl shadow-lg overflow-hidden">
+                  {/* Enhanced Header */}
+                  <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-b border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-accent/20 border border-accent/30 flex items-center justify-center">
+                        <ShoppingCart className="w-4 h-4 text-accent" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
+                          Purchase Prices
+                          {!isAdmin && (
+                            <Lock className="w-3.5 h-3.5 text-muted-foreground" title="Read-only: Admin only" />
+                          )}
+                        </h3>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          USD per carton • Varies by pack & supplier {isAdmin && '• Click pack name to bulk edit'}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
-                      USD per carton • Varies by pack & supplier {isAdmin && '• Click pack to set all'}
-                      {!isAdmin && '• Read-only'}
-                    </span>
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/5 border border-accent/20 rounded-lg">
+                      <TrendingUp className="w-3.5 h-3.5 text-accent" />
+                      <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">
+                        Cost
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-muted/50 border-b border-border h-8">
-                          <TableHead className="w-32 text-[10px] font-semibold py-1.5 px-2 bg-muted/60 sticky left-0 z-20 border-r border-border">
-                            Pack
+                        <TableRow className="bg-muted/40 border-b-2 border-border h-10">
+                          <TableHead className="w-36 text-xs font-bold py-3 px-4 bg-gradient-to-r from-muted/80 to-muted/40 sticky left-0 z-20 border-r-2 border-border/60 shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-3.5 h-3.5 text-accent" />
+                              <span>Pack</span>
+                            </div>
                           </TableHead>
                           {suppliers.length === 0 ? (
-                            <TableHead className="text-center text-[10px] py-1.5 px-2">
-                              <span className="text-muted-foreground">No suppliers</span>
+                            <TableHead className="text-center text-xs py-3 px-4">
+                              <span className="text-muted-foreground font-medium">No suppliers available</span>
                             </TableHead>
                           ) : (
                             suppliers.map(supplier => (
-                              <TableHead key={supplier} className="text-right text-[10px] font-semibold min-w-[95px] py-1.5 px-2 whitespace-nowrap">
-                                <div className="truncate" title={supplier}>{supplier}</div>
+                              <TableHead key={supplier} className="text-right text-xs font-bold min-w-[110px] py-3 px-4 whitespace-nowrap bg-muted/20">
+                                <div className="truncate font-semibold" title={supplier}>{supplier}</div>
                               </TableHead>
                             ))
                           )}
@@ -1007,26 +1168,38 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                       <TableBody>
                         {packs.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={suppliers.length + 1} className="text-center text-xs text-muted-foreground py-6">
-                              No packs available
+                            <TableCell colSpan={suppliers.length + 1} className="text-center py-12">
+                              <div className="flex flex-col items-center gap-2">
+                                <Package className="w-8 h-8 text-muted-foreground/40" />
+                                <p className="text-sm font-medium text-muted-foreground">No packs available</p>
+                                <p className="text-xs text-muted-foreground/70">No shipping data found for this year and fruit combination</p>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ) : (
-                          packs.map(pack => (
-                            <TableRow key={pack} className="hover:bg-muted/5 border-b border-border/50 transition-colors duration-100">
+                          packs.map((pack, packIndex) => (
+                            <TableRow key={pack} className={cn(
+                              "hover:bg-accent/3 border-b border-border/40 transition-all duration-200",
+                              packIndex % 2 === 0 ? "bg-card" : "bg-muted/10"
+                            )}>
                               <TableCell 
                                 onClick={isAdmin ? () => setEditingBulkPurchasePrice({ pack, price: 0 }) : undefined}
                                 className={cn(
-                                  "font-semibold text-[11px] py-1.5 px-2 bg-muted/30 border-r border-border sticky left-0 z-10 transition-colors",
-                                  isAdmin ? "cursor-pointer hover:bg-accent/10" : "cursor-not-allowed opacity-75"
+                                  "font-bold text-xs py-3 px-4 bg-gradient-to-r from-muted/50 to-muted/20 border-r-2 border-border/60 sticky left-0 z-10 transition-all duration-200",
+                                  isAdmin ? "cursor-pointer hover:bg-accent/15 hover:shadow-sm group" : "cursor-not-allowed opacity-60"
                                 )}
                                 title={isAdmin ? `Click to set same price for all suppliers: ${pack}` : 'Only administrators can edit prices'}
                               >
-                                {pack}
+                                <div className="flex items-center gap-2">
+                                  <span>{pack}</span>
+                                  {isAdmin && (
+                                    <Sparkles className="w-3 h-3 text-accent/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  )}
+                                </div>
                               </TableCell>
                               {suppliers.length === 0 ? (
-                                <TableCell colSpan={1} className="text-center text-xs text-muted-foreground py-4">
-                                  No suppliers
+                                <TableCell colSpan={1} className="text-center py-8">
+                                  <span className="text-xs text-muted-foreground">No suppliers</span>
                                 </TableCell>
                               ) : (
                                 suppliers.map(supplier => {
@@ -1041,16 +1214,18 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                                         price: price?.purchase_price || 0
                                       }) : undefined}
                                       className={cn(
-                                        "text-right text-[11px] py-1.5 px-2 transition-all duration-100 whitespace-nowrap",
-                                        isAdmin ? "cursor-pointer hover:bg-primary/8" : "cursor-not-allowed opacity-75",
-                                        hasPrice && "font-medium"
+                                        "text-right text-xs py-3 px-4 transition-all duration-200 whitespace-nowrap",
+                                        isAdmin ? "cursor-pointer hover:bg-accent/10 hover:shadow-sm" : "cursor-not-allowed opacity-60",
+                                        hasPrice && "font-semibold"
                                       )}
                                       title={isAdmin ? `Click to edit: ${pack} - ${supplier}` : 'Only administrators can edit prices'}
                                     >
                                       {hasPrice ? (
-                                        <span className="text-accent font-semibold">${price.purchase_price.toFixed(2)}</span>
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-accent/10 text-accent font-bold">
+                                          ${price.purchase_price.toFixed(2)}
+                                        </span>
                                       ) : (
-                                        <span className="text-muted-foreground text-[10px]">-</span>
+                                        <span className="text-muted-foreground/50 text-xs font-medium">—</span>
                                       )}
                                     </TableCell>
                                   );
@@ -1069,57 +1244,60 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         </DialogContent>
       </Dialog>
 
-      {/* Edit Sales Price Dialog */}
+      {/* Edit Sales Price Dialog - Premium Design */}
       {editingSalesPrice && (
         <Dialog open={!!editingSalesPrice} onOpenChange={() => setEditingSalesPrice(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader className="pb-3 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-lg font-heading">
-                <DollarSign className="w-4 h-4 text-primary" />
-                Edit Sales Price
-                {!isAdmin && (
-                  <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    (Read-only)
-                  </span>
-                )}
+          <DialogContent className="max-w-md p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border-b border-border/50">
+              <DialogTitle className="flex items-center gap-3 text-xl font-heading font-bold">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span>Edit Sales Price</span>
+                    {!isAdmin && (
+                      <span className="text-xs text-muted-foreground font-normal flex items-center gap-1 px-2 py-0.5 bg-muted/60 rounded-md">
+                        <Lock className="w-3 h-3" />
+                        Read-only
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 font-normal">Update price for specific pack and supplier</p>
+                </div>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="bg-muted/40 p-3 rounded-lg border border-border/50">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Fruit:</span>
-                    <span className="font-semibold">{filterFruit}</span>
+            <div className="space-y-5 px-6 py-5">
+              <div className="bg-gradient-to-br from-muted/50 to-muted/30 p-4 rounded-xl border border-border/60">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Fruit</p>
+                    <p className="text-sm font-bold text-foreground">{filterFruit}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Pack:</span>
-                    <span className="font-semibold">{editingSalesPrice.pack}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Year</p>
+                    <p className="text-sm font-bold text-foreground">{filterYear}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pack</p>
+                    <p className="text-sm font-bold text-foreground">{editingSalesPrice.pack}</p>
                   </div>
                   {editingSalesPrice.supplier && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground font-medium uppercase tracking-wide">Supplier:</span>
-                      <span className="font-semibold">{editingSalesPrice.supplier}</span>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Supplier</p>
+                      <p className="text-sm font-bold text-foreground">{editingSalesPrice.supplier}</p>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Year:</span>
-                    <span className="font-semibold">{filterYear}</span>
-                  </div>
-                </div>
-                <div className="mt-3 pt-3 border-t border-border/50">
-                  <p className="text-[10px] text-muted-foreground">
-                    This price is specific to this supplier and pack combination.
-                  </p>
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="sales-price" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="space-y-3">
+                <Label htmlFor="sales-price" className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-primary" />
                   Sales Price (USD per carton)
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground font-bold text-lg">$</span>
                   <Input
                     id="sales-price"
                     type="number"
@@ -1129,19 +1307,29 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                       ...editingSalesPrice,
                       price: parseFloat(e.target.value) || 0
                     })}
-                    className="pl-8 text-sm font-semibold"
+                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-primary"
                     placeholder="0.00"
                     disabled={!isAdmin}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  This price applies to all cartons of {editingSalesPrice.pack} from {editingSalesPrice.supplier || 'all suppliers'}
+                </p>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setEditingSalesPrice(null)} size="sm" className="text-xs">
+              <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
+                <Button variant="outline" onClick={() => setEditingSalesPrice(null)} size="sm">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveSalesPrice} disabled={isSaving || !isAdmin} size="sm" className="text-xs">
-                  {isSaving ? 'Saving...' : 'Save Price'}
+                <Button onClick={handleSaveSalesPrice} disabled={isSaving || !isAdmin} size="sm" className="bg-primary hover:bg-primary/90">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Price'
+                  )}
                 </Button>
               </div>
             </div>
@@ -1149,50 +1337,58 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         </Dialog>
       )}
 
-      {/* Edit Purchase Price Dialog */}
+      {/* Edit Purchase Price Dialog - Premium Design */}
       {editingPurchasePrice && (
         <Dialog open={!!editingPurchasePrice} onOpenChange={() => setEditingPurchasePrice(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader className="pb-3 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-lg font-heading">
-                <ShoppingCart className="w-4 h-4 text-accent" />
-                Edit Purchase Price
-                {!isAdmin && (
-                  <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    (Read-only)
-                  </span>
-                )}
+          <DialogContent className="max-w-md p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-accent/5 via-accent/3 to-transparent border-b border-border/50">
+              <DialogTitle className="flex items-center gap-3 text-xl font-heading font-bold">
+                <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center">
+                  <ShoppingCart className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span>Edit Purchase Price</span>
+                    {!isAdmin && (
+                      <span className="text-xs text-muted-foreground font-normal flex items-center gap-1 px-2 py-0.5 bg-muted/60 rounded-md">
+                        <Lock className="w-3 h-3" />
+                        Read-only
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 font-normal">Update cost for specific pack and supplier</p>
+                </div>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="bg-muted/40 p-3 rounded-lg border border-border/50">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Fruit:</span>
-                    <span className="font-semibold">{filterFruit}</span>
+            <div className="space-y-5 px-6 py-5">
+              <div className="bg-gradient-to-br from-muted/50 to-muted/30 p-4 rounded-xl border border-border/60">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Fruit</p>
+                    <p className="text-sm font-bold text-foreground">{filterFruit}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Pack:</span>
-                    <span className="font-semibold">{editingPurchasePrice.pack}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Year</p>
+                    <p className="text-sm font-bold text-foreground">{filterYear}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Supplier:</span>
-                    <span className="font-semibold">{editingPurchasePrice.supplier}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pack</p>
+                    <p className="text-sm font-bold text-foreground">{editingPurchasePrice.pack}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Year:</span>
-                    <span className="font-semibold">{filterYear}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Supplier</p>
+                    <p className="text-sm font-bold text-foreground">{editingPurchasePrice.supplier}</p>
                   </div>
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="purchase-price" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="space-y-3">
+                <Label htmlFor="purchase-price" className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4 text-accent" />
                   Purchase Price (USD per carton)
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground font-bold text-lg">$</span>
                   <Input
                     id="purchase-price"
                     type="number"
@@ -1202,19 +1398,29 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                       ...editingPurchasePrice,
                       price: parseFloat(e.target.value) || 0
                     })}
-                    className="pl-8 text-sm font-semibold"
+                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-accent"
                     placeholder="0.00"
                     disabled={!isAdmin}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  This price applies to all cartons of {editingPurchasePrice.pack} from {editingPurchasePrice.supplier}
+                </p>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setEditingPurchasePrice(null)} size="sm" className="text-xs">
+              <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
+                <Button variant="outline" onClick={() => setEditingPurchasePrice(null)} size="sm">
                   Cancel
                 </Button>
-                <Button onClick={handleSavePurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="text-xs">
-                  {isSaving ? 'Saving...' : 'Save Price'}
+                <Button onClick={handleSavePurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="bg-accent hover:bg-accent/90">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Price'
+                  )}
                 </Button>
               </div>
             </div>
@@ -1222,55 +1428,64 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         </Dialog>
       )}
 
-      {/* Bulk Edit Sales Price Dialog */}
+      {/* Bulk Edit Sales Price Dialog - Premium Design */}
       {editingBulkSalesPrice && (
         <Dialog open={!!editingBulkSalesPrice} onOpenChange={() => setEditingBulkSalesPrice(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader className="pb-3 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-lg font-heading">
-                <DollarSign className="w-4 h-4 text-primary" />
-                Set Sales Price for All Suppliers
-                {!isAdmin && (
-                  <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    (Read-only)
-                  </span>
-                )}
+          <DialogContent className="max-w-md p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border-b border-border/50">
+              <DialogTitle className="flex items-center gap-3 text-xl font-heading font-bold">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span>Bulk Set Sales Price</span>
+                    {!isAdmin && (
+                      <span className="text-xs text-muted-foreground font-normal flex items-center gap-1 px-2 py-0.5 bg-muted/60 rounded-md">
+                        <Lock className="w-3 h-3" />
+                        Read-only
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 font-normal">Apply same price to all suppliers</p>
+                </div>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="bg-muted/40 p-3 rounded-lg border border-border/50">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Fruit:</span>
-                    <span className="font-semibold">{filterFruit}</span>
+            <div className="space-y-5 px-6 py-5">
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-4 rounded-xl border-2 border-primary/20">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Fruit</p>
+                    <p className="text-sm font-bold text-foreground">{filterFruit}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Pack:</span>
-                    <span className="font-semibold">{editingBulkSalesPrice.pack}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Year</p>
+                    <p className="text-sm font-bold text-foreground">{filterYear}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Year:</span>
-                    <span className="font-semibold">{filterYear}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pack</p>
+                    <p className="text-sm font-bold text-foreground">{editingBulkSalesPrice.pack}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Suppliers:</span>
-                    <span className="font-semibold">{suppliers.length}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Suppliers</p>
+                    <p className="text-sm font-bold text-primary">{suppliers.length}</p>
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-border/50">
-                  <p className="text-[10px] text-muted-foreground">
-                    This price will be applied to ALL {suppliers.length} suppliers for this pack.
+                <div className="pt-3 border-t border-primary/20">
+                  <p className="text-xs font-medium text-primary/90 flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    This price will be applied to ALL {suppliers.length} suppliers for pack {editingBulkSalesPrice.pack}
                   </p>
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="bulk-sales-price" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="space-y-3">
+                <Label htmlFor="bulk-sales-price" className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-primary" />
                   Sales Price (USD per carton)
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground font-bold text-lg">$</span>
                   <Input
                     id="bulk-sales-price"
                     type="number"
@@ -1280,7 +1495,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                       ...editingBulkSalesPrice,
                       price: parseFloat(e.target.value) || 0
                     })}
-                    className="pl-8 text-sm font-semibold"
+                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-primary"
                     placeholder="0.00"
                     autoFocus
                     disabled={!isAdmin}
@@ -1288,12 +1503,22 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setEditingBulkSalesPrice(null)} size="sm" className="text-xs">
+              <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
+                <Button variant="outline" onClick={() => setEditingBulkSalesPrice(null)} size="sm">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveBulkSalesPrice} disabled={isSaving || !isAdmin} size="sm" className="text-xs">
-                  {isSaving ? 'Saving...' : `Set for ${suppliers.length} Suppliers`}
+                <Button onClick={handleSaveBulkSalesPrice} disabled={isSaving || !isAdmin} size="sm" className="bg-primary hover:bg-primary/90">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Set for {suppliers.length} Suppliers
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -1301,55 +1526,64 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         </Dialog>
       )}
 
-      {/* Bulk Edit Purchase Price Dialog */}
+      {/* Bulk Edit Purchase Price Dialog - Premium Design */}
       {editingBulkPurchasePrice && (
         <Dialog open={!!editingBulkPurchasePrice} onOpenChange={() => setEditingBulkPurchasePrice(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader className="pb-3 border-b border-border">
-              <DialogTitle className="flex items-center gap-2 text-lg font-heading">
-                <ShoppingCart className="w-4 h-4 text-accent" />
-                Set Purchase Price for All Suppliers
-                {!isAdmin && (
-                  <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    (Read-only)
-                  </span>
-                )}
+          <DialogContent className="max-w-md p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-accent/5 via-accent/3 to-transparent border-b border-border/50">
+              <DialogTitle className="flex items-center gap-3 text-xl font-heading font-bold">
+                <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center">
+                  <ShoppingCart className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span>Bulk Set Purchase Price</span>
+                    {!isAdmin && (
+                      <span className="text-xs text-muted-foreground font-normal flex items-center gap-1 px-2 py-0.5 bg-muted/60 rounded-md">
+                        <Lock className="w-3 h-3" />
+                        Read-only
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 font-normal">Apply same cost to all suppliers</p>
+                </div>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="bg-muted/40 p-3 rounded-lg border border-border/50">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Fruit:</span>
-                    <span className="font-semibold">{filterFruit}</span>
+            <div className="space-y-5 px-6 py-5">
+              <div className="bg-gradient-to-br from-accent/10 to-accent/5 p-4 rounded-xl border-2 border-accent/20">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Fruit</p>
+                    <p className="text-sm font-bold text-foreground">{filterFruit}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Pack:</span>
-                    <span className="font-semibold">{editingBulkPurchasePrice.pack}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Year</p>
+                    <p className="text-sm font-bold text-foreground">{filterYear}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Year:</span>
-                    <span className="font-semibold">{filterYear}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pack</p>
+                    <p className="text-sm font-bold text-foreground">{editingBulkPurchasePrice.pack}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground font-medium uppercase tracking-wide">Suppliers:</span>
-                    <span className="font-semibold">{suppliers.length}</span>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Suppliers</p>
+                    <p className="text-sm font-bold text-accent">{suppliers.length}</p>
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-border/50">
-                  <p className="text-[10px] text-muted-foreground">
-                    This price will be applied to ALL {suppliers.length} suppliers for this pack.
+                <div className="pt-3 border-t border-accent/20">
+                  <p className="text-xs font-medium text-accent/90 flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    This price will be applied to ALL {suppliers.length} suppliers for pack {editingBulkPurchasePrice.pack}
                   </p>
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="bulk-purchase-price" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="space-y-3">
+                <Label htmlFor="bulk-purchase-price" className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4 text-accent" />
                   Purchase Price (USD per carton)
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground font-bold text-lg">$</span>
                   <Input
                     id="bulk-purchase-price"
                     type="number"
@@ -1359,7 +1593,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                       ...editingBulkPurchasePrice,
                       price: parseFloat(e.target.value) || 0
                     })}
-                    className="pl-8 text-sm font-semibold"
+                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-accent"
                     placeholder="0.00"
                     autoFocus
                     disabled={!isAdmin}
@@ -1367,12 +1601,22 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setEditingBulkPurchasePrice(null)} size="sm" className="text-xs">
+              <div className="flex justify-end gap-3 pt-2 border-t border-border/50">
+                <Button variant="outline" onClick={() => setEditingBulkPurchasePrice(null)} size="sm">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveBulkPurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="text-xs">
-                  {isSaving ? 'Saving...' : `Set for ${suppliers.length} Suppliers`}
+                <Button onClick={handleSaveBulkPurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="bg-accent hover:bg-accent/90">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Set for {suppliers.length} Suppliers
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

@@ -280,14 +280,23 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
       const purchaseKey = `${pack}|${supplier}|${year}`;
       
       // Get sales price - try supplier-specific first (PINEAPPLES), then uniform (BANANAS), then fallback
+      // Ensure we never use NaN - default to 0 if all lookups fail
       const salesPrice = salesPricesByPackSupplier.get(salesKeySupplier) 
                       || salesPriceMap.get(salesKeyUniform) 
-                      || fallbackSalesPrice;
+                      || (isNaN(fallbackSalesPrice) || fallbackSalesPrice == null ? 0 : fallbackSalesPrice);
+      
+      // Ensure salesPrice is a valid number
+      const validSalesPrice = isNaN(salesPrice) || salesPrice == null ? 0 : salesPrice;
       
       // Get purchase price directly from purchase_prices table (varies by supplier and year)
-      const purchasePrice = purchasePriceMap.get(purchaseKey) || (salesPrice * 0.9);
+      // Default to 0 if not found, or 90% of sales price if sales price exists
+      const purchasePrice = purchasePriceMap.get(purchaseKey) || (validSalesPrice > 0 ? validSalesPrice * 0.9 : 0);
       
-      const result = { sales: salesPrice, purchase: purchasePrice };
+      // Ensure both prices are valid numbers
+      const result = { 
+        sales: isNaN(validSalesPrice) ? 0 : validSalesPrice, 
+        purchase: isNaN(purchasePrice) ? 0 : purchasePrice 
+      };
       priceCache.set(cacheKey, result);
       return result;
     };
@@ -300,23 +309,34 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     for (const record of filteredData) {
       const { pack, supplier, year, cartons, price: fallbackPrice } = record;
       
-      // Get prices (cached lookup - O(1) after first lookup)
-      const { sales: salesPrice, purchase: purchasePrice } = getPrices(pack, supplier, year, fallbackPrice);
+      // Ensure fallbackPrice is a valid number (default to 0 if undefined or NaN)
+      const validFallbackPrice = (fallbackPrice != null && !isNaN(fallbackPrice)) ? fallbackPrice : 0;
       
-      // Calculate values
-      const sales = cartons * salesPrice;
-      const purchase = cartons * purchasePrice;
+      // Get prices (cached lookup - O(1) after first lookup)
+      const { sales: salesPrice, purchase: purchasePrice } = getPrices(pack, supplier, year, validFallbackPrice);
+      
+      // Calculate values - ensure no NaN results
+      const sales = (cartons || 0) * (salesPrice || 0);
+      const purchase = (cartons || 0) * (purchasePrice || 0);
+      
+      // Ensure calculated values are valid numbers
+      const validSales = isNaN(sales) ? 0 : sales;
+      const validPurchase = isNaN(purchase) ? 0 : purchase;
       
       // Aggregate using composite key (O(1) lookup)
       const key = `${pack}|${supplier}`;
       const existing = supplierDataMap.get(key);
       
       if (existing) {
-        existing.cartons += cartons;
-        existing.sales += sales;
-        existing.purchase += purchase;
+        existing.cartons += (cartons || 0);
+        existing.sales += validSales;
+        existing.purchase += validPurchase;
       } else {
-        supplierDataMap.set(key, { cartons, sales, purchase });
+        supplierDataMap.set(key, { 
+          cartons: cartons || 0, 
+          sales: validSales, 
+          purchase: validPurchase 
+        });
         allSuppliers.add(supplier);
       }
     }
@@ -326,7 +346,9 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     
     for (const [key, data] of supplierDataMap) {
       const [pack, supplier] = key.split('|');
-      const profit = data.sales - data.purchase;
+      // Ensure profit calculation doesn't produce NaN
+      const profit = (isNaN(data.sales) ? 0 : data.sales) - (isNaN(data.purchase) ? 0 : data.purchase);
+      const validProfit = isNaN(profit) ? 0 : profit;
       
       if (!packDataMap.has(pack)) {
         packDataMap.set(pack, {
@@ -337,39 +359,121 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
       }
       
       const packData = packDataMap.get(pack)!;
-      packData.suppliers[supplier] = { ...data, profit };
-      packData.totals.cartons += data.cartons;
-      packData.totals.sales += data.sales;
-      packData.totals.purchase += data.purchase;
-      packData.totals.profit += profit;
+      // Ensure all data values are valid numbers
+      const validData = {
+        cartons: isNaN(data.cartons) ? 0 : data.cartons,
+        sales: isNaN(data.sales) ? 0 : data.sales,
+        purchase: isNaN(data.purchase) ? 0 : data.purchase,
+        profit: validProfit
+      };
+      packData.suppliers[supplier] = validData;
+      packData.totals.cartons += validData.cartons;
+      packData.totals.sales += validData.sales;
+      packData.totals.purchase += validData.purchase;
+      packData.totals.profit += validProfit;
     }
 
-    // Convert to array and sort
-    const result = Array.from(packDataMap.values()).sort((a, b) => a.pack.localeCompare(b.pack));
+    // Custom sort function for banana packs: 13.5 KG B -> 13.5 KG A -> 13.5 KG SH -> 7.2 KG -> 6 KG -> 3 KG -> 18 KG
+    const getPackSortOrder = (pack: string): number => {
+      const packUpper = pack.toUpperCase().trim();
+      
+      // Check if it's a pineapple pack (pattern: number followed by 'C', e.g., 7C, 8C, 9C)
+      const pineappleMatch = packUpper.match(/^(\d+)C$/);
+      if (pineappleMatch) {
+        const number = parseInt(pineappleMatch[1], 10);
+        return number; // Pineapples: ascending order (7C, 8C, 9C, etc.)
+      }
+      
+      // Banana pack sorting - Order: 13.5 KG A (first) -> 13.5 KG SH -> 13.5 KG B -> 7.2 KG -> 6 KG -> 3 KG -> 18 KG (last)
+      // 1. 13.5 KG A (first)
+      if (packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
+          (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH')) ||
+          (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
+        return 1;
+      }
+      // 2. 13.5 KG SH
+      if (packUpper === '13.5 KG SH' || packUpper === '13KG SH' || packUpper === '13 KG SH' ||
+          (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H'))) ||
+          (packUpper.includes('13') && packUpper.includes('KG') && (packUpper.includes('SH') || packUpper.includes('S/H')))) {
+        return 2;
+      }
+      // 3. 13.5 KG B
+      if (packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
+          (packUpper.includes('13.5') && packUpper.includes('B')) ||
+          (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('B'))) {
+        return 3;
+      }
+      // 4. 7KG or 7.2 KG A
+      if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
+          (packUpper.match(/^7\s*KG/i) || packUpper.match(/^7\.2\s*KG/i)) && !packUpper.includes('13.5') && !packUpper.includes('17') && !packUpper.includes('27')) {
+        return 4;
+      }
+      // 5. 6KG
+      if (packUpper === '6KG' || (packUpper.match(/^6\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('16') && !packUpper.includes('26'))) {
+        return 5;
+      }
+      // 6. 3KG or 3 KG A
+      if (packUpper === '3KG' || packUpper === '3 KG A' || 
+          (packUpper.match(/^3\s*KG/i) && !packUpper.includes('13.5') && !packUpper.includes('13 KG'))) {
+        return 6;
+      }
+      // 7. 18KG (last)
+      if (packUpper === '18KG' || packUpper === '18 KG A' || packUpper.includes('18 KG')) {
+        return 7;
+      }
+      
+      // Default: sort alphabetically for any other packs
+      return 999;
+    };
+    
+    // Convert to array and sort using custom order
+    const result = Array.from(packDataMap.values()).sort((a, b) => {
+      const orderA = getPackSortOrder(a.pack);
+      const orderB = getPackSortOrder(b.pack);
+      
+      // If both have defined order, sort by order
+      if (orderA !== 999 && orderB !== 999) {
+        return orderA - orderB;
+      }
+      // If only one has defined order, prioritize it
+      if (orderA !== 999) return -1;
+      if (orderB !== 999) return 1;
+      // If neither has defined order, sort alphabetically
+      return a.pack.localeCompare(b.pack);
+    });
 
     return { packs: result, suppliers: Array.from(allSuppliers).sort() };
   }, [filteredData, salesPriceMap, salesPricesByPackSupplier, purchasePriceMap]);
 
-  // Calculate grand totals
+  // Calculate grand totals - ensure no NaN values
   const grandTotals = useMemo(() => {
     return pnlData.packs.reduce(
-      (acc, pack) => ({
-        cartons: acc.cartons + pack.totals.cartons,
-        sales: acc.sales + pack.totals.sales,
-        purchase: acc.purchase + pack.totals.purchase,
-        profit: acc.profit + pack.totals.profit,
-      }),
+      (acc, pack) => {
+        const packCartons = isNaN(pack.totals.cartons) ? 0 : pack.totals.cartons;
+        const packSales = isNaN(pack.totals.sales) ? 0 : pack.totals.sales;
+        const packPurchase = isNaN(pack.totals.purchase) ? 0 : pack.totals.purchase;
+        const packProfit = isNaN(pack.totals.profit) ? 0 : pack.totals.profit;
+        
+        return {
+          cartons: acc.cartons + packCartons,
+          sales: acc.sales + packSales,
+          purchase: acc.purchase + packPurchase,
+          profit: acc.profit + packProfit,
+        };
+      },
       { cartons: 0, sales: 0, purchase: 0, profit: 0 }
     );
   }, [pnlData]);
 
   const formatCurrency = (value: number) => {
+    // Ensure value is a valid number, default to 0 if NaN or null/undefined
+    const validValue = (value != null && !isNaN(value)) ? value : 0;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value);
+    }).format(validValue);
   };
 
   return (
