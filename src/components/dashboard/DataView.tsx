@@ -1560,6 +1560,9 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                               <SelectItem value="Santito Brands Inc">
                                 Santito Brands Inc
                               </SelectItem>
+                              <SelectItem value="Sinofresh Tropical Fruits INC.">
+                                Sinofresh Tropical Fruits INC.
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
