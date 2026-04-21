@@ -17,6 +17,7 @@ if (!supabaseUrl || !env.supabaseAnonKey) {
   }
 }
 
+// Single browser client: public anon key only (never service_role). Auth + PostgREST use this.
 export const supabase = supabaseUrl && env.supabaseAnonKey
   ? createClient(supabaseUrl, env.supabaseAnonKey, {
       auth: {
