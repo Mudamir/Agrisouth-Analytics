@@ -8,12 +8,10 @@ import { PNLView } from '@/components/dashboard/PNLView';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { ConfigurationManagement } from '@/components/admin/ConfigurationManagement';
 import { DataLogs } from '@/components/admin/DataLogs';
-import Generate from './Generate';
-import InvoiceGeneration from './InvoiceGeneration';
 import { useShippingData } from '@/hooks/useShippingData';
 import { useAuth } from '@/contexts/AuthContext';
 
-type Page = 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs' | 'generate' | 'invoice-generation';
+type Page = 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs';
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -22,16 +20,10 @@ const Index = () => {
   // Redirect if user tries to access a page they don't have permission for
   // Also re-check when permissions change
   useEffect(() => {
-    // Handle invoice-generation as a sub-page of generate
-    if (currentPage === 'invoice-generation') {
-      if (!canAccessPage('generate')) {
-        setCurrentPage('dashboard');
-      }
-    } else if (!canAccessPage(currentPage)) {
-      // Redirect to dashboard if they don't have access
+    if (!canAccessPage(currentPage)) {
       setCurrentPage('dashboard');
     }
-  }, [currentPage, canAccessPage, userPermissions]); // Added userPermissions to dependencies
+  }, [currentPage, canAccessPage, userPermissions]);
   
   const {
     data,
@@ -102,14 +94,6 @@ const Index = () => {
           selectedFruit={selectedFruit}
           onSelectFruit={setSelectedFruit}
         />
-      )}
-
-      {currentPage === 'generate' && canAccessPage('generate') && (
-        <Generate onNavigate={setCurrentPage} />
-      )}
-
-      {currentPage === 'invoice-generation' && canAccessPage('generate') && (
-        <InvoiceGeneration onNavigate={setCurrentPage} />
       )}
 
       {currentPage === 'users' && canAccessPage('users') && (

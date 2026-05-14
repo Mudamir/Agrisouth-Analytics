@@ -14,7 +14,6 @@ import {
   Settings,
   LineChart,
   Table2,
-  FileCheck,
   History
 } from 'lucide-react';
 import { Logo } from './Logo';
@@ -25,8 +24,8 @@ import { PineappleIcon } from './PineappleIcon';
 interface SidebarProps {
   selectedFruit: FruitType;
   onSelectFruit: (fruit: FruitType) => void;
-  currentPage: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs' | 'generate';
-  onNavigate: (page: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs' | 'generate') => void;
+  currentPage: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs';
+  onNavigate: (page: 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs') => void;
   totalContainers: number;
   totalCartons: number;
 }
@@ -267,46 +266,6 @@ export function Sidebar({
             )}
           </div>
         </div>
-
-        {/* Generate Section - Separated */}
-        {canAccessPage('generate') && (
-          <div className="pt-2.5 border-t border-primary/30">
-            {!isCollapsed && (
-              <p className="text-[9px] font-bold text-primary-foreground/40 uppercase tracking-[0.2em] px-2.5 mb-2">
-                Generate
-              </p>
-            )}
-            <button
-              onClick={() => onNavigate('generate')}
-              className={cn(
-                'w-full flex items-center rounded-lg transition-all duration-300 group relative overflow-hidden',
-                isCollapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2.5 py-2',
-                currentPage === 'generate'
-                  ? 'bg-accent/90 text-accent-foreground shadow-md shadow-accent/30 border border-accent/20'
-                  : 'text-primary-foreground/75 hover:bg-white/10 hover:text-primary-foreground border border-transparent hover:border-white/10'
-              )}
-              title={isCollapsed ? "Generate" : undefined}
-            >
-              <div className={cn(
-                'flex items-center justify-center rounded-md transition-all duration-300',
-                currentPage === 'generate'
-                  ? 'bg-accent-foreground/10 p-1'
-                  : 'bg-white/5 p-1 group-hover:bg-white/10'
-              )}>
-                <FileCheck className={cn(
-                  'transition-all duration-300 flex-shrink-0',
-                  isCollapsed ? 'w-4 h-4' : 'w-4 h-4',
-                  currentPage === 'generate' 
-                    ? 'scale-110 text-accent-foreground' 
-                    : 'group-hover:scale-105 text-primary-foreground/90'
-                )} />
-              </div>
-              {!isCollapsed && (
-                <span className="font-semibold text-xs tracking-wide">Generate</span>
-              )}
-            </button>
-          </div>
-        )}
 
         {/* Settings Section */}
         {(canAccessUserManagement || canAccessConfiguration || canAccessDataLogs) && (

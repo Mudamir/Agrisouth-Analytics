@@ -18,8 +18,9 @@ interface SalesPrice {
   id: string;
   item: FruitType;
   pack: string;
-  sales_price: number;
-  supplier?: string | null;  // NULL for items with uniform pricing (BANANAS), specific supplier for items with supplier-specific pricing (PINEAPPLES)
+  price: number;
+  price_type: 'sales';
+  supplier?: string | null;
   year?: number;
   updated_at: string;
 }
@@ -29,7 +30,8 @@ interface PurchasePrice {
   item: FruitType;
   pack: string;
   supplier: string;
-  purchase_price: number;
+  price: number;
+  price_type: 'purchase';
   year?: number;
   updated_at: string;
 }
@@ -232,9 +234,10 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
           if (packsFromShipping.length === 0) {
             console.log('No packs from shipping_records, checking existing prices...');
             const { data: pricePackData } = await supabase
-              .from('sales_prices')
+              .from('prices')
               .select('pack')
               .eq('item', normalizedFruit)
+              .eq('price_type', 'sales')
           .eq('year', filterYear)
           .not('pack', 'is', null)
           .neq('pack', '');
@@ -263,14 +266,15 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
           if (uniquePacks.length === 0) {
             console.log('⚠️ No packs from shipping_records, checking existing prices...');
             const { data: pricePackData } = await supabase
-              .from('sales_prices')
+              .from('prices')
               .select('pack')
               .eq('item', normalizedFruit)
+              .eq('price_type', 'sales')
               .eq('year', filterYear)
               .not('pack', 'is', null)
               .neq('pack', '');
             
-            console.log('📦 Packs from sales_prices:', pricePackData?.length || 0);
+            console.log('📦 Packs from prices (sales):', pricePackData?.length || 0);
             
             if (pricePackData && pricePackData.length > 0) {
               const packSet = new Set<string>();
@@ -343,9 +347,10 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
           if (suppliersFromShipping.length === 0) {
             console.log('No suppliers from shipping_records, checking existing prices...');
             const { data: priceSupplierData } = await supabase
-              .from('purchase_prices')
+              .from('prices')
               .select('supplier')
               .eq('item', normalizedFruit)
+              .eq('price_type', 'purchase')
           .eq('year', filterYear)
           .not('supplier', 'is', null)
           .neq('supplier', '');
@@ -374,14 +379,15 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
           if (uniqueSuppliers.length === 0) {
             console.log('⚠️ No suppliers from shipping_records, checking existing prices...');
             const { data: priceSupplierData } = await supabase
-              .from('purchase_prices')
+              .from('prices')
               .select('supplier')
               .eq('item', normalizedFruit)
+              .eq('price_type', 'purchase')
               .eq('year', filterYear)
               .not('supplier', 'is', null)
               .neq('supplier', '');
             
-            console.log('👥 Suppliers from purchase_prices:', priceSupplierData?.length || 0);
+            console.log('👥 Suppliers from prices (purchase):', priceSupplierData?.length || 0);
             
             if (priceSupplierData && priceSupplierData.length > 0) {
               const supplierSet = new Set<string>();
@@ -400,89 +406,39 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         console.error('Error fetching suppliers from shipping_records:', err);
       }
 
-      // Try to fetch sales prices with year and supplier columns
-      let salesData: any[] = [];
-      let salesError: any = null;
-      
-      try {
-        let salesQuery = supabase
-          .from('sales_prices')
-          .select('id, item, pack, sales_price, supplier, year, updated_at')
-          .eq('item', normalizedFruit)
-          .eq('year', filterYear);
-        
-        const result = await salesQuery.order('pack').order('supplier');
-        salesData = result.data || [];
-        salesError = result.error;
-      } catch (err: any) {
-        salesError = err;
-      }
+      // Fetch sales prices from unified prices table
+      const { data: salesData, error: salesError } = await supabase
+        .from('prices')
+        .select('id, item, pack, price, price_type, supplier, year, updated_at')
+        .eq('item', normalizedFruit)
+        .eq('price_type', 'sales')
+        .eq('year', filterYear)
+        .order('pack')
+        .order('supplier');
 
-      // If error about columns, fetch with minimal fields
-      if (salesError && (salesError.code === 'PGRST116' || salesError.message?.includes('year') || salesError.message?.includes('column'))) {
-        console.warn('Column issue, fetching with minimal fields');
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('sales_prices')
-          .select('id, item, pack, sales_price, updated_at')
-          .eq('item', normalizedFruit)
-          .order('pack');
-        
-        if (fallbackError) {
-          console.error('Error fetching sales prices:', fallbackError);
-          throw fallbackError;
-        }
-        salesData = fallbackData || [];
-      } else if (salesError) {
+      if (salesError) {
         console.error('Error fetching sales prices:', salesError);
         throw salesError;
       }
 
-      setSalesPrices(salesData);
+      setSalesPrices(salesData || []);
 
-      // Try to fetch purchase prices with year column first
-      let purchaseData: any[] = [];
-      let purchaseError: any = null;
-      
-      try {
-        let purchaseQuery = supabase
-          .from('purchase_prices')
-          .select('id, item, pack, supplier, purchase_price, year, updated_at')
-          .eq('item', normalizedFruit)
-          .eq('year', filterYear);
-        
-        const result = await purchaseQuery
-          .order('pack')
-          .order('supplier');
-        
-        purchaseData = result.data || [];
-        purchaseError = result.error;
-      } catch (err: any) {
-        purchaseError = err;
-      }
+      // Fetch purchase prices from unified prices table
+      const { data: purchaseData, error: purchaseError } = await supabase
+        .from('prices')
+        .select('id, item, pack, price, price_type, supplier, year, updated_at')
+        .eq('item', normalizedFruit)
+        .eq('price_type', 'purchase')
+        .eq('year', filterYear)
+        .order('pack')
+        .order('supplier');
 
-      // If error about year column, fetch without year (fallback for old schema)
-      // Note: This fallback should only be used if year column doesn't exist in schema
-      // In normal operation, prices are strictly isolated by item AND year
-      if (purchaseError && (purchaseError.code === 'PGRST116' || purchaseError.message?.includes('year') || purchaseError.message?.includes('column'))) {
-        console.warn('Year column issue, fetching without year filter (fallback mode)');
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('purchase_prices')
-          .select('id, item, pack, supplier, purchase_price, updated_at')
-          .eq('item', normalizedFruit)
-          .order('pack')
-          .order('supplier');
-        
-        if (fallbackError) {
-          console.error('Error fetching purchase prices:', fallbackError);
-          throw fallbackError;
-        }
-        purchaseData = fallbackData || [];
-      } else if (purchaseError) {
+      if (purchaseError) {
         console.error('Error fetching purchase prices:', purchaseError);
         throw purchaseError;
       }
 
-      setPurchasePrices(purchaseData);
+      setPurchasePrices(purchaseData || []);
 
       // Prices are set in the error handling above
     } catch (error: any) {
@@ -515,17 +471,19 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
       const priceData = {
         item: normalizedFruit,
         pack: editingSalesPrice.pack,
-        sales_price: editingSalesPrice.price,
+        price: editingSalesPrice.price,
+        price_type: 'sales' as const,
         supplier: editingSalesPrice.supplier || null,
         year: filterYear,
       };
 
       // Build query to find existing record
       let query = supabase
-        .from('sales_prices')
+        .from('prices')
         .select('id')
         .eq('item', normalizedFruit)
         .eq('pack', editingSalesPrice.pack)
+        .eq('price_type', 'sales')
         .eq('year', filterYear);
       
       // Add supplier filter
@@ -547,14 +505,14 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
       if (existingRecord?.id) {
         // Update existing record
         result = await supabase
-          .from('sales_prices')
+          .from('prices')
           .update(priceData)
           .eq('id', existingRecord.id)
           .select();
       } else {
         // Insert new record
         result = await supabase
-          .from('sales_prices')
+          .from('prices')
           .insert(priceData)
           .select();
       }
@@ -614,17 +572,19 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
         item: normalizedFruit,
         pack: editingPurchasePrice.pack,
         supplier: editingPurchasePrice.supplier,
-        purchase_price: editingPurchasePrice.price,
+        price: editingPurchasePrice.price,
+        price_type: 'purchase' as const,
         year: filterYear,
       };
 
-      // First, try to find existing record by item, pack, supplier, and year
+      // First, try to find existing record by item, pack, supplier, price_type, and year
       const { data: existingRecord, error: findError } = await supabase
-        .from('purchase_prices')
+        .from('prices')
         .select('id')
         .eq('item', normalizedFruit)
         .eq('pack', editingPurchasePrice.pack)
         .eq('supplier', editingPurchasePrice.supplier)
+        .eq('price_type', 'purchase')
         .eq('year', filterYear)
         .maybeSingle();
 
@@ -638,14 +598,14 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
       if (existingRecord?.id) {
         // Update existing record
         result = await supabase
-          .from('purchase_prices')
+          .from('prices')
           .update(priceData)
           .eq('id', existingRecord.id)
           .select();
       } else {
         // Insert new record
         result = await supabase
-          .from('purchase_prices')
+          .from('prices')
           .insert(priceData)
           .select();
       }
@@ -711,30 +671,32 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
             item: normalizedFruit,
             pack: editingBulkSalesPrice.pack,
             supplier,
-            sales_price: editingBulkSalesPrice.price,
+            price: editingBulkSalesPrice.price,
+            price_type: 'sales' as const,
             year: filterYear,
           };
 
           // Check if record exists
           const { data: existing } = await supabase
-            .from('sales_prices')
+            .from('prices')
             .select('id')
             .eq('item', normalizedFruit)
             .eq('pack', editingBulkSalesPrice.pack)
             .eq('supplier', supplier)
+            .eq('price_type', 'sales')
             .eq('year', filterYear)
             .maybeSingle();
 
           if (existing?.id) {
             // Update existing
             await supabase
-              .from('sales_prices')
+              .from('prices')
               .update(priceData)
               .eq('id', existing.id);
           } else {
             // Insert new
             await supabase
-              .from('sales_prices')
+              .from('prices')
               .insert(priceData);
           }
           successCount++;
@@ -791,30 +753,32 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
             item: normalizedFruit,
             pack: editingBulkPurchasePrice.pack,
             supplier,
-            purchase_price: editingBulkPurchasePrice.price,
+            price: editingBulkPurchasePrice.price,
+            price_type: 'purchase' as const,
             year: filterYear,
           };
 
           // Check if record exists
           const { data: existing } = await supabase
-            .from('purchase_prices')
+            .from('prices')
             .select('id')
             .eq('item', normalizedFruit)
             .eq('pack', editingBulkPurchasePrice.pack)
             .eq('supplier', supplier)
+            .eq('price_type', 'purchase')
             .eq('year', filterYear)
             .maybeSingle();
 
           if (existing?.id) {
             // Update existing
             await supabase
-              .from('purchase_prices')
+              .from('prices')
               .update(priceData)
               .eq('id', existing.id);
           } else {
             // Insert new
             await supabase
-              .from('purchase_prices')
+              .from('prices')
               .insert(priceData);
           }
           successCount++;
@@ -843,8 +807,6 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
   };
 
   const getSalesPrice = (pack: string, supplier?: string) => {
-    // Always use supplier-specific pricing for both fruits
-    // Strictly filter by year to ensure isolation
     if (supplier) {
       return salesPrices.find(p => 
         p.pack === pack && 
@@ -857,7 +819,6 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
   };
 
   const getPurchasePrice = (pack: string, supplier: string) => {
-    // Strictly filter by year and fruit to ensure isolation
     return purchasePrices.find(p => 
       p.pack === pack && 
       p.supplier === supplier && 
@@ -1079,14 +1040,14 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                               ) : (
                                 suppliers.map(supplier => {
                                   const price = getSalesPrice(pack, supplier);
-                                  const hasPrice = price?.sales_price;
+                                  const hasPrice = price?.price;
                                   return (
                                     <TableCell
                                       key={supplier}
                                       onClick={isAdmin ? () => setEditingSalesPrice({
                                         pack,
                                         supplier,
-                                        price: price?.sales_price || 0
+                                        price: price?.price || 0
                                       }) : undefined}
                                       className={cn(
                                         "text-right text-xs py-3 px-4 transition-all duration-200 whitespace-nowrap",
@@ -1097,7 +1058,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                                     >
                                       {hasPrice ? (
                                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary font-bold">
-                                          ${price.sales_price.toFixed(2)}
+                                          ${price.price.toFixed(2)}
                                         </span>
                                       ) : (
                                         <span className="text-muted-foreground/50 text-xs font-medium">—</span>
@@ -1204,14 +1165,14 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                               ) : (
                                 suppliers.map(supplier => {
                                   const price = getPurchasePrice(pack, supplier);
-                                  const hasPrice = price?.purchase_price;
+                                  const hasPrice = price?.price;
                                   return (
                                     <TableCell
                                       key={supplier}
                                       onClick={isAdmin ? () => setEditingPurchasePrice({
                                         pack,
                                         supplier,
-                                        price: price?.purchase_price || 0
+                                        price: price?.price || 0
                                       }) : undefined}
                                       className={cn(
                                         "text-right text-xs py-3 px-4 transition-all duration-200 whitespace-nowrap",
@@ -1222,7 +1183,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
                                     >
                                       {hasPrice ? (
                                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-accent/10 text-accent font-bold">
-                                          ${price.purchase_price.toFixed(2)}
+                                          ${price.price.toFixed(2)}
                                         </span>
                                       ) : (
                                         <span className="text-muted-foreground/50 text-xs font-medium">—</span>

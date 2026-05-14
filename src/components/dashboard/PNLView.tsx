@@ -97,11 +97,12 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         const fruitData = data.filter(r => r.item === selectedFruit);
         const uniqueYears = Array.from(new Set(fruitData.map(r => r.year))).sort((a, b) => b - a);
         
-        // Build sales prices query - filter by item
+        // Build sales prices query - filter by item and price_type
         let salesQuery = supabase
-          .from('sales_prices')
+          .from('prices')
           .select('*')
-          .eq('item', selectedFruit);
+          .eq('item', selectedFruit)
+          .eq('price_type', 'sales');
         
         // If not 'ALL', filter by specific year
         if (selectedYear !== 'ALL') {
@@ -119,11 +120,12 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           console.error('Error fetching sales prices:', salesError);
         }
 
-        // Build purchase prices query - filter by item
+        // Build purchase prices query - filter by item and price_type
         let purchaseQuery = supabase
-          .from('purchase_prices')
+          .from('prices')
           .select('*')
-          .eq('item', selectedFruit);
+          .eq('item', selectedFruit)
+          .eq('price_type', 'purchase');
         
         // If not 'ALL', filter by specific year
         if (selectedYear !== 'ALL') {
@@ -153,11 +155,11 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           if (sp.supplier == null || sp.supplier === '') {
             // Uniform pricing (BANANAS) - use "pack|year" as key
             const key = `${sp.pack}|${sp.year}`;
-            newSalesPriceMap.set(key, sp.sales_price);
+            newSalesPriceMap.set(key, sp.price);
           } else {
             // Supplier-specific pricing (PINEAPPLES) - use "pack|supplier|year" as key
             const key = `${sp.pack}|${sp.supplier}|${sp.year}`;
-            salesPricesByPackSupplier.set(key, sp.sales_price);
+            salesPricesByPackSupplier.set(key, sp.price);
           }
         });
 
@@ -165,7 +167,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
         const newPurchasePriceMap = new Map<string, number>();
         (purchaseData || []).forEach(pp => {
           const key = `${pp.pack}|${pp.supplier}|${pp.year}`;
-          newPurchasePriceMap.set(key, pp.purchase_price);
+          newPurchasePriceMap.set(key, pp.price);
         });
 
         // Store the maps for direct access
@@ -288,7 +290,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
       // Ensure salesPrice is a valid number
       const validSalesPrice = isNaN(salesPrice) || salesPrice == null ? 0 : salesPrice;
       
-      // Get purchase price directly from purchase_prices table (varies by supplier and year)
+      // Get purchase price directly from prices table (varies by supplier and year)
       // Default to 0 if not found, or 90% of sales price if sales price exists
       const purchasePrice = purchasePriceMap.get(purchaseKey) || (validSalesPrice > 0 ? validSalesPrice * 0.9 : 0);
       
