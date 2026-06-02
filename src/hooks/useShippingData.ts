@@ -5,6 +5,7 @@ import { supabase, DatabaseShippingRecord } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { logger } from '@/lib/logger';
+import { normalizeInvoiceNumber, validateInvoiceNumber } from '@/lib/invoiceNumber';
 
 // Helper to transform database record to app record
 function transformRecord(dbRecord: DatabaseShippingRecord): ShippingRecord {
@@ -670,6 +671,65 @@ export function useShippingData() {
     return await deleteMutation.mutateAsync(id);
   };
 
+  const updateInvoiceNumberMutation = useMutation({
+    mutationFn: async ({
+      id,
+      invoiceNo,
+      item,
+      year,
+    }: {
+      id: string;
+      invoiceNo: string | null;
+      item: FruitType;
+      year: number;
+    }) => {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
+      const normalizedInvoiceNo = normalizeInvoiceNumber(invoiceNo);
+
+      if (normalizedInvoiceNo) {
+        const validation = validateInvoiceNumber(normalizedInvoiceNo, item, year);
+        if (!validation.valid) {
+          throw new Error(validation.message || 'Invalid invoice number format');
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('shipping_records')
+        .update({ invoice_no: normalizedInvoiceNo })
+        .eq('id', id)
+        .select('*');
+
+      if (error) {
+        logger.safeError('Error updating invoice number', error);
+        throw new Error(error.message || 'Failed to update invoice number');
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Unable to update invoice number. Please sign in again or contact an administrator.');
+      }
+
+      return transformRecord(data[0] as DatabaseShippingRecord);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipping-records'] });
+    },
+    onError: (error: Error) => {
+      logger.safeError('Update invoice number mutation error', error);
+    },
+  });
+
+  const updateInvoiceNumber = async (
+    id: string,
+    invoiceNo: string | null,
+    item: FruitType,
+    year: number
+  ) => {
+    return updateInvoiceNumberMutation.mutateAsync({ id, invoiceNo, item, year });
+  };
+
   const updateFilter = (key: keyof FilterState, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -715,6 +775,7 @@ export function useShippingData() {
     supplierStats,
     addRecord,
     deleteRecord,
+    updateInvoiceNumber,
     isLoading,
     error,
   };

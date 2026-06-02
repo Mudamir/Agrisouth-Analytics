@@ -27,6 +27,7 @@ import ExcelJS from 'exceljs';
 import logoImage from '@/Images/AGSouth-Icon.png';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { validateInvoiceNumber } from '@/lib/invoiceNumber';
 import { format, parse } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -44,13 +45,19 @@ interface DataViewProps {
   data: ShippingRecord[];
   onAdd: (record: Omit<ShippingRecord, 'id'>) => void;
   onDelete: (id: string) => void;
+  onUpdateInvoiceNumber: (
+    id: string,
+    invoiceNo: string | null,
+    item: FruitType,
+    year: number
+  ) => Promise<unknown>;
 }
 
 // Pack options remain hardcoded as they're product-specific
 const bananaPacks = ['13.5 KG A', '13.5 KG B', '13.5 KG SH', '7KG', '6KG', '3KG', '18KG'];
 const pineapplePacks = ['7C', '8C', '9C', '10C', '12C'];
 
-export function DataView({ data, onAdd, onDelete }: DataViewProps) {
+export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataViewProps) {
   const { getPols, getDestinations, getBananaSuppliers, getPineappleSuppliers, getSLines, isLoading: configLoading } = useConfiguration();
   const { userRole } = useAuth();
   const isViewer = userRole === 'viewer';
@@ -110,8 +117,38 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ShippingRecord | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [savingInvoiceId, setSavingInvoiceId] = useState<string | null>(null);
   
   const { user } = useAuth();
+
+  const handleInvoiceNumberSave = async (record: ShippingRecord, rawValue: string) => {
+    const newValue = rawValue.trim().toUpperCase();
+    const oldValue = (record.invoiceNo ?? '').trim();
+
+    if (newValue === oldValue) return;
+
+    if (newValue) {
+      const validation = validateInvoiceNumber(newValue, record.item, record.year);
+      if (!validation.valid) {
+        toast.error(validation.message || 'Invalid invoice number format');
+        return;
+      }
+    }
+
+    setSavingInvoiceId(record.id);
+    try {
+      await onUpdateInvoiceNumber(record.id, newValue || null, record.item, record.year);
+      if (selectedRecord?.id === record.id) {
+        setSelectedRecord({ ...selectedRecord, invoiceNo: newValue || null });
+      }
+      toast.success('Invoice number updated');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update invoice number';
+      toast.error(message);
+    } finally {
+      setSavingInvoiceId(null);
+    }
+  };
 
   // Filter by item type
   const itemFilteredData = useMemo(() => {
@@ -153,6 +190,8 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
         record.pol.toLowerCase().includes(query) ||
         record.destination.toLowerCase().includes(query) ||
         record.item.toLowerCase().includes(query) ||
+        (record.invoiceNo?.toLowerCase().includes(query) ?? false) ||
+        (record.billingNo?.toLowerCase().includes(query) ?? false) ||
         String(record.year).includes(query) ||
         String(record.week).includes(query) ||
         String(record.cartons).includes(query)
@@ -1075,7 +1114,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10" />
               <Input
                 type="text"
-                placeholder="Search by container, pack, S.Line, POL, destination, or cartons..."
+                placeholder="Search by container, pack, invoice no., BL no., S.Line, POL, destination, or cartons..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -2023,7 +2062,34 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                   <TableCell>{record.lCont.toFixed(4)}</TableCell>
                   <TableCell className="font-semibold">{record.cartons.toLocaleString()}</TableCell>
                   <TableCell className="text-sm">{record.vessel || '-'}</TableCell>
-                  <TableCell className="text-sm">{record.invoiceNo || '-'}</TableCell>
+                  <TableCell
+                    className="text-sm p-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {isViewer ? (
+                      <span>{record.invoiceNo || '-'}</span>
+                    ) : (
+                      <Input
+                        key={`${record.id}-${record.invoiceNo ?? ''}`}
+                        defaultValue={record.invoiceNo ?? ''}
+                        placeholder={record.item === 'BANANAS' ? `B${record.year}001` : `P${record.year}001`}
+                        className="h-8 font-mono text-xs min-w-[100px]"
+                        disabled={savingInvoiceId === record.id}
+                        title={`Format: ${record.item === 'BANANAS' ? 'B' : 'P'}${record.year}###`}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.target.value = e.target.value.toUpperCase();
+                        }}
+                        onBlur={(e) => handleInvoiceNumberSave(record, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm">{record.invoiceDate || '-'}</TableCell>
                   <TableCell className="text-sm">{record.customerName || '-'}</TableCell>
                   <TableCell className="text-sm">{record.billingNo || '-'}</TableCell>

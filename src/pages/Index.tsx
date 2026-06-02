@@ -45,6 +45,7 @@ const Index = () => {
     supplierStats,
     addRecord,
     deleteRecord,
+    updateInvoiceNumber,
   } = useShippingData();
 
   return (
@@ -85,6 +86,7 @@ const Index = () => {
           data={data}
           onAdd={addRecord}
           onDelete={deleteRecord}
+          onUpdateInvoiceNumber={updateInvoiceNumber}
         />
       )}
 
