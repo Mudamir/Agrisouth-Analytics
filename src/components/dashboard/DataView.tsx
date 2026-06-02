@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { ShippingRecord, FruitType } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,6 +89,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     vessel: '',
     customerName: '',
     billingNo: '',
+    invoiceNo: '',
   });
 
   // Container locking state - for adding multiple packs to one container
@@ -96,6 +97,10 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
   const [containerTotalCartons, setContainerTotalCartons] = useState<number | ''>('');
   const [packEntries, setPackEntries] = useState<Array<{ pack: string; cartons: number }>>([]);
   const [currentPackEntry, setCurrentPackEntry] = useState({ pack: '', cartons: 0 });
+
+  // Track highest invoice sequence assigned this session (before DB refresh)
+  const sessionInvoiceMaxRef = useRef<Map<string, number>>(new Map());
+  const invoiceDraftRequestIdRef = useRef(0);
 
   // Delete confirmation modal state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -257,6 +262,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
           vessel: latestRecord.vessel || '',
           customerName: latestRecord.customer_name || '',
           billingNo: latestRecord.billing_no || '',
+          invoiceNo: '',
         });
         toast.success('Latest record data loaded');
       }
@@ -556,141 +562,146 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     return duplicates;
   };
 
-  // Function to generate or retrieve invoice number and date based on billing number (1:1 ratio)
-  const getInvoiceData = async (billingNo: string | null, item: FruitType, year: number, week: number): Promise<{ invoiceNo: string | null; invoiceDate: string | null }> => {
-    if (!billingNo || !billingNo.trim()) {
-      return { invoiceNo: null, invoiceDate: null };
+  const getInvoicePrefix = (item: FruitType) => (item === 'BANANAS' ? 'B' : 'P');
+
+  const getSessionInvoiceKey = (item: FruitType, year: number) => `${item}-${year}`;
+
+  const parseInvoiceSequence = (invoiceNo: string, prefix: string, year: number): number => {
+    const match = invoiceNo.match(new RegExp(`^${prefix}${year}(\\d{3})$`, 'i'));
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  const getHighestInvoiceSequence = (invoiceNumbers: string[], prefix: string, year: number): number => {
+    let highest = 0;
+    invoiceNumbers.forEach((invoiceNo) => {
+      const seq = parseInvoiceSequence(invoiceNo, prefix, year);
+      if (seq > highest) highest = seq;
+    });
+    return highest;
+  };
+
+  // Next incremental invoice number for item/year (all records in that year + session)
+  const getNextInvoiceNumber = async (
+    item: FruitType,
+    year: number,
+    localRecords: ShippingRecord[]
+  ): Promise<string | null> => {
+    if (!supabase) return null;
+
+    const prefix = getInvoicePrefix(item);
+    const sessionKey = getSessionInvoiceKey(item, year);
+
+    const { data: dbRecords, error } = await supabase
+      .from('shipping_records')
+      .select('invoice_no')
+      .eq('item', item)
+      .like('invoice_no', `${prefix}${year}%`)
+      .not('invoice_no', 'is', null);
+
+    if (error) {
+      console.error('Error fetching invoice numbers:', error);
     }
 
+    const localInvoiceNumbers = localRecords
+      .filter((r) => r.item === item && r.invoiceNo)
+      .map((r) => r.invoiceNo!);
+
+    const allInvoiceNumbers = [
+      ...(dbRecords || []).map((r) => r.invoice_no!).filter(Boolean),
+      ...localInvoiceNumbers,
+    ];
+
+    let highest = getHighestInvoiceSequence(allInvoiceNumbers, prefix, year);
+    const sessionHigh = sessionInvoiceMaxRef.current.get(sessionKey) || 0;
+    highest = Math.max(highest, sessionHigh);
+
+    const nextNumber = highest + 1;
+    return `${prefix}${year}${String(nextNumber).padStart(3, '0')}`;
+  };
+
+  const rememberInvoiceSequence = (item: FruitType, year: number, invoiceNo: string | null | undefined) => {
+    if (!invoiceNo?.trim()) return;
+    const prefix = getInvoicePrefix(item);
+    const seq = parseInvoiceSequence(invoiceNo.trim(), prefix, year);
+    if (seq <= 0) return;
+    const sessionKey = getSessionInvoiceKey(item, year);
+    const current = sessionInvoiceMaxRef.current.get(sessionKey) || 0;
+    sessionInvoiceMaxRef.current.set(sessionKey, Math.max(current, seq));
+  };
+
+  // Function to generate or retrieve invoice number and date based on billing number (1:1 ratio)
+  const getInvoiceData = async (billingNo: string | null, item: FruitType, year: number, week: number): Promise<{ invoiceNo: string | null; invoiceDate: string | null }> => {
     if (!supabase) {
       return { invoiceNo: null, invoiceDate: null };
     }
 
     try {
-      // Step 1: Check if billing number already exists in database
-      // If it exists, use the same invoice number and invoice date (1:1 ratio)
-      const { data: existingRecords, error: existingError } = await supabase
-        .from('shipping_records')
-        .select('invoice_no, invoice_date')
-        .eq('billing_no', billingNo.trim())
-        .not('invoice_no', 'is', null)
-        .limit(1);
-
-      if (existingError) {
-        console.error('Error checking for existing billing number:', existingError);
-      }
-
-      // If billing number exists, return the same invoice number and invoice date (1:1 ratio)
-      if (existingRecords && existingRecords.length > 0 && existingRecords[0].invoice_no) {
-        const existingRecord = existingRecords[0];
-        // Format invoice date if it exists (convert from database format to MM/dd/yyyy)
-        let formattedInvoiceDate: string | null = null;
-        if (existingRecord.invoice_date) {
-          try {
-            const date = new Date(existingRecord.invoice_date);
-            if (!isNaN(date.getTime())) {
-              formattedInvoiceDate = format(date, 'MM/dd/yyyy');
-            }
-          } catch (e) {
-            console.error('Error formatting existing invoice date:', e);
-          }
-        }
-        return {
-          invoiceNo: existingRecord.invoice_no,
-          invoiceDate: formattedInvoiceDate
-        };
-      }
-
-      // Step 2: Billing number is new, so get the highest last 3 digits from current week AND previous week's invoice numbers
-      const prefix = item === 'BANANAS' ? 'B' : 'P';
-      
-      // Calculate previous week
-      let previousWeek = week - 1;
-      let previousYear = year;
-      
-      // If current week is 1, go to previous year's last week (assume 52 weeks)
-      if (previousWeek < 1) {
-        previousWeek = 52;
-        previousYear = year - 1;
-      }
-      
-      // Get all invoice numbers from BOTH current week and previous week for this item type
-      // Format: B2026001, P2026001, etc. (prefix + year + 3-digit number)
-      const [currentWeekResult, previousWeekResult] = await Promise.all([
-        // Current week invoices
-        supabase
+      if (billingNo?.trim()) {
+        const { data: existingRecords, error: existingError } = await supabase
           .from('shipping_records')
-          .select('invoice_no')
-          .eq('year', year)
-          .eq('week', week)
-          .eq('item', item)
-          .like('invoice_no', `${prefix}${year}%`)
-          .not('invoice_no', 'is', null),
-        // Previous week invoices
-        supabase
-          .from('shipping_records')
-          .select('invoice_no')
-          .eq('year', previousYear)
-          .eq('week', previousWeek)
-          .eq('item', item)
-          .like('invoice_no', `${prefix}${previousYear}%`)
+          .select('invoice_no, invoice_date')
+          .eq('billing_no', billingNo.trim())
           .not('invoice_no', 'is', null)
-      ]);
+          .limit(1);
 
-      if (currentWeekResult.error) {
-        console.error('Error getting invoice numbers from current week:', currentWeekResult.error);
-      }
-      if (previousWeekResult.error) {
-        console.error('Error getting invoice numbers from previous week:', previousWeekResult.error);
-      }
+        if (existingError) {
+          console.error('Error checking for existing billing number:', existingError);
+        }
 
-      // Combine results from both weeks
-      const allInvoiceRecords = [
-        ...(currentWeekResult.data || []),
-        ...(previousWeekResult.data || [])
-      ];
-
-      // Extract the last 3 digits from each invoice number and find the highest
-      let highestNumber = 0;
-      if (allInvoiceRecords.length > 0) {
-        allInvoiceRecords.forEach((record) => {
-          if (record.invoice_no) {
-            // Pattern: prefix (B/P) + year (4 digits) + number (3 digits)
-            // Extract the last 3 digits (the number part)
-            // Check both current year and previous year patterns
-            const currentYearMatch = record.invoice_no.match(new RegExp(`${prefix}${year}(\\d{3})$`));
-            const previousYearMatch = record.invoice_no.match(new RegExp(`${prefix}${previousYear}(\\d{3})$`));
-            
-            const match = currentYearMatch || previousYearMatch;
-            if (match && match[1]) {
-              const number = parseInt(match[1], 10);
-              if (number > highestNumber) {
-                highestNumber = number;
+        if (existingRecords && existingRecords.length > 0 && existingRecords[0].invoice_no) {
+          const existingRecord = existingRecords[0];
+          let formattedInvoiceDate: string | null = null;
+          if (existingRecord.invoice_date) {
+            try {
+              const date = new Date(existingRecord.invoice_date);
+              if (!isNaN(date.getTime())) {
+                formattedInvoiceDate = format(date, 'MM/dd/yyyy');
               }
+            } catch (e) {
+              console.error('Error formatting existing invoice date:', e);
             }
           }
-        });
+          return {
+            invoiceNo: existingRecord.invoice_no,
+            invoiceDate: formattedInvoiceDate,
+          };
+        }
       }
 
-      // Increment the highest number by 1
-      const nextNumber = highestNumber + 1;
+      const newInvoiceNo = await getNextInvoiceNumber(item, year, data);
+      const formattedInvoiceDate = format(new Date(), 'MM/dd/yyyy');
 
-      // Format as: B2026001, P2026001, etc. (First letter + year + 3-digit increment)
-      const newInvoiceNo = `${prefix}${year}${String(nextNumber).padStart(3, '0')}`;
-      
-      // For new billing numbers, set invoice date to today
-      const today = new Date();
-      const formattedInvoiceDate = format(today, 'MM/dd/yyyy');
-      
       return {
         invoiceNo: newInvoiceNo,
-        invoiceDate: formattedInvoiceDate
+        invoiceDate: formattedInvoiceDate,
       };
     } catch (error) {
       console.error('Error generating invoice data:', error);
       return { invoiceNo: null, invoiceDate: null };
     }
   };
+
+  const invoiceNumbersSignature = useMemo(
+    () => data.filter((r) => r.invoiceNo).map((r) => `${r.item}:${r.invoiceNo}`).join('|'),
+    [data]
+  );
+
+  // Pre-fill editable invoice number with the next incremental draft
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const requestId = ++invoiceDraftRequestIdRef.current;
+    (async () => {
+      const draft = await getInvoiceData(
+        newRecord.billingNo,
+        newRecord.item,
+        newRecord.year,
+        newRecord.week
+      );
+      if (invoiceDraftRequestIdRef.current !== requestId || !draft.invoiceNo) return;
+      setNewRecord((prev) => ({ ...prev, invoiceNo: draft.invoiceNo! }));
+    })();
+  }, [isOpen, newRecord.item, newRecord.year, newRecord.week, newRecord.billingNo, invoiceNumbersSignature]);
 
   const handleSubmit = async () => {
     if (!newRecord.etdDate) {
@@ -707,7 +718,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
     // If billing number exists, reuse both invoice number and invoice date (1:1 ratio)
     // If billing number is new, get highest invoice number from previous week and increment by 1
     const invoiceData = await getInvoiceData(newRecord.billingNo, newRecord.item, newRecord.year, newRecord.week);
-    const invoiceNo = invoiceData.invoiceNo;
+    const invoiceNo = newRecord.invoiceNo.trim() || invoiceData.invoiceNo;
     // Convert invoice date from MM/dd/yyyy to yyyy-MM-dd (ISO format) for database
     let formattedInvoiceDate: string | null = null;
     if (invoiceData.invoiceDate) {
@@ -769,6 +780,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       });
 
       toast.success(`Successfully added ${packEntries.length} record(s) for container ${newRecord.container}`);
+      rememberInvoiceSequence(newRecord.item, newRecord.year, invoiceNo);
     }
 
     // Reset form
@@ -794,6 +806,7 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
       vessel: '',
       customerName: '',
       billingNo: '',
+      invoiceNo: '',
     });
     setContainerInfoLocked(false);
     setContainerTotalCartons('');
@@ -1575,6 +1588,15 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                             onChange={(e) => setNewRecord({ ...newRecord, billingNo: e.target.value })}
                           />
                         </div>
+                        <div className="space-y-1.5 col-span-2">
+                          <Label className="text-xs font-medium">Invoice No.</Label>
+                          <Input
+                            className="h-9 font-mono"
+                            placeholder={`${getInvoicePrefix(newRecord.item)}${newRecord.year}001`}
+                            value={newRecord.invoiceNo}
+                            onChange={(e) => setNewRecord({ ...newRecord, invoiceNo: e.target.value.toUpperCase() })}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1681,6 +1703,12 @@ export function DataView({ data, onAdd, onDelete }: DataViewProps) {
                           <div>
                             <Label className="text-xs text-muted-foreground">Billing No.</Label>
                             <div className="font-medium">{newRecord.billingNo}</div>
+                          </div>
+                        )}
+                        {newRecord.invoiceNo && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Invoice No.</Label>
+                            <div className="font-mono font-medium">{newRecord.invoiceNo}</div>
                           </div>
                         )}
                       </div>
