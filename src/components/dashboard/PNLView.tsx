@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ShippingRecord, FruitType } from '@/types/shipping';
-import { supabase } from '@/lib/supabase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -14,6 +13,8 @@ import { StatCard } from './StatCard';
 import { cn } from '@/lib/utils';
 import { Banana } from 'lucide-react';
 import { PineappleIcon } from './PineappleIcon';
+import { usePrices } from '@/hooks/usePrices';
+import { buildPriceMaps, filterPricesForPnl } from '@/lib/priceMaps';
 
 interface PNLViewProps {
   data: ShippingRecord[];
@@ -39,15 +40,8 @@ export interface PackData {
 export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
   const [selectedYear, setSelectedYear] = useState<number | 'ALL'>('ALL');
   const [selectedWeek, setSelectedWeek] = useState<number | 'ALL'>('ALL');
-  const [priceConfig, setPriceConfig] = useState<Map<string, { sales: number; purchase: number }>>(new Map());
-  const [salesPriceMap, setSalesPriceMap] = useState<Map<string, number>>(new Map()); // Direct access to uniform sales prices by pack (BANANAS)
-  const [salesPricesByPackSupplier, setSalesPricesByPackSupplier] = useState<Map<string, number>>(new Map()); // Direct access to supplier-specific sales prices by "pack|supplier" (PINEAPPLES)
-  const [purchasePriceMap, setPurchasePriceMap] = useState<Map<string, number>>(new Map()); // Direct access to purchase prices by "pack|supplier"
-  const [priceKey, setPriceKey] = useState(0); // Force refresh when prices update
   const [selectedCell, setSelectedCell] = useState<{ pack: string; supplier: string } | null>(null);
-  const [isLoadingPrices, setIsLoadingPrices] = useState(true); // Track when prices are loading
-  const [dataReady, setDataReady] = useState(false); // Track when data is ready after delay
-  const [loadingProgress, setLoadingProgress] = useState(0); // Track loading progress
+  const { data: allPrices = [], isLoading: isLoadingPrices } = usePrices();
 
   // Get years from 2024 to current year only
   const years = useMemo(() => {
@@ -67,168 +61,24 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
     return uniqueWeeks;
   }, [data, selectedFruit, selectedYear]);
 
-  // Reset week when year or fruit changes
   useEffect(() => {
     setSelectedWeek('ALL');
   }, [selectedYear, selectedFruit]);
 
-  // Clear loading state when year/fruit changes (not week - week doesn't affect prices)
-  useEffect(() => {
-    setIsLoadingPrices(true);
-    setDataReady(false);
-    setLoadingProgress(0);
-  }, [selectedFruit, selectedYear]);
+  const fruitDataYears = useMemo(() => {
+    const fruitData = data.filter((r) => r.item === selectedFruit);
+    return Array.from(new Set(fruitData.map((r) => r.year))).sort((a, b) => b - a);
+  }, [data, selectedFruit]);
 
-  // Fetch price configuration from Supabase
-  useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        if (!supabase) {
-          setIsLoadingPrices(false);
-          setLoadingProgress(100);
-          setDataReady(true);
-          return;
-        }
-        
-        setIsLoadingPrices(true);
+  const relevantPrices = useMemo(
+    () => filterPricesForPnl(allPrices, selectedFruit, selectedYear, fruitDataYears),
+    [allPrices, selectedFruit, selectedYear, fruitDataYears]
+  );
 
-        // When 'ALL' is selected, fetch prices for all years
-        // Otherwise, fetch prices only for the selected year
-        const fruitData = data.filter(r => r.item === selectedFruit);
-        const uniqueYears = Array.from(new Set(fruitData.map(r => r.year))).sort((a, b) => b - a);
-        
-        // Build sales prices query - filter by item and price_type
-        let salesQuery = supabase
-          .from('prices')
-          .select('*')
-          .eq('item', selectedFruit)
-          .eq('price_type', 'sales');
-        
-        // If not 'ALL', filter by specific year
-        if (selectedYear !== 'ALL') {
-          salesQuery = salesQuery.eq('year', selectedYear);
-        } else {
-          // When 'ALL', get prices for all years that exist in the data
-          if (uniqueYears.length > 0) {
-            salesQuery = salesQuery.in('year', uniqueYears);
-          }
-        }
-
-        const { data: salesData, error: salesError } = await salesQuery;
-
-        if (salesError) {
-          console.error('Error fetching sales prices:', salesError);
-        }
-
-        // Build purchase prices query - filter by item and price_type
-        let purchaseQuery = supabase
-          .from('prices')
-          .select('*')
-          .eq('item', selectedFruit)
-          .eq('price_type', 'purchase');
-        
-        // If not 'ALL', filter by specific year
-        if (selectedYear !== 'ALL') {
-          purchaseQuery = purchaseQuery.eq('year', selectedYear);
-        } else {
-          // When 'ALL', get prices for all years that exist in the data
-          if (uniqueYears.length > 0) {
-            purchaseQuery = purchaseQuery.in('year', uniqueYears);
-          }
-        }
-
-        const { data: purchaseData, error: purchaseError } = await purchaseQuery;
-
-        if (purchaseError) {
-          console.error('Error fetching purchase prices:', purchaseError);
-        }
-
-        // Create maps for quick lookup with year information
-        // When 'ALL' is selected, we need to store prices by year: "pack|supplier|year" or "pack|year"
-        // Sales prices: Handle both models
-        // - BANANAS: "pack|year" -> price (supplier IS NULL)
-        // - PINEAPPLES: "pack|supplier|year" -> price (supplier-specific)
-        const newSalesPriceMap = new Map<string, number>(); // "pack|year" -> price
-        const salesPricesByPackSupplier = new Map<string, number>(); // "pack|supplier|year" -> price
-        
-        (salesData || []).forEach(sp => {
-          if (sp.supplier == null || sp.supplier === '') {
-            // Uniform pricing (BANANAS) - use "pack|year" as key
-            const key = `${sp.pack}|${sp.year}`;
-            newSalesPriceMap.set(key, sp.price);
-          } else {
-            // Supplier-specific pricing (PINEAPPLES) - use "pack|supplier|year" as key
-            const key = `${sp.pack}|${sp.supplier}|${sp.year}`;
-            salesPricesByPackSupplier.set(key, sp.price);
-          }
-        });
-
-        // Purchase prices: "pack|supplier|year" -> price
-        const newPurchasePriceMap = new Map<string, number>();
-        (purchaseData || []).forEach(pp => {
-          const key = `${pp.pack}|${pp.supplier}|${pp.year}`;
-          newPurchasePriceMap.set(key, pp.price);
-        });
-
-        // Store the maps for direct access
-        setSalesPriceMap(newSalesPriceMap);
-        setSalesPricesByPackSupplier(salesPricesByPackSupplier);
-        setPurchasePriceMap(newPurchasePriceMap);
-
-        // Combine into a single map structure for backward compatibility
-        // Format: "pack|supplier" -> { sales, purchase } (for single year view)
-        // For 'ALL' years, this map won't be used directly, but we keep it for compatibility
-        const combinedMap = new Map<string, { sales: number; purchase: number }>();
-        
-        if (selectedYear !== 'ALL') {
-          // For single year view, create the combined map as before
-          const allPacks = new Set<string>();
-          (salesData || []).forEach(sp => {
-            if (sp.year === selectedYear) allPacks.add(sp.pack);
-          });
-          (purchaseData || []).forEach(pp => {
-            if (pp.year === selectedYear) allPacks.add(pp.pack);
-          });
-          
-          allPacks.forEach(pack => {
-            const suppliersForPack = new Set<string>();
-            (purchaseData || []).forEach(pp => {
-              if (pp.pack === pack && pp.year === selectedYear) suppliersForPack.add(pp.supplier);
-            });
-            (salesData || []).forEach(sp => {
-              if (sp.pack === pack && sp.supplier && sp.year === selectedYear) suppliersForPack.add(sp.supplier);
-            });
-            
-            if (suppliersForPack.size === 0) {
-              const uniformSalesPrice = newSalesPriceMap.get(`${pack}|${selectedYear}`) || 0;
-              combinedMap.set(`${pack}|*`, { sales: uniformSalesPrice, purchase: 0 });
-            } else {
-              suppliersForPack.forEach(supplier => {
-                const salesPrice = salesPricesByPackSupplier.get(`${pack}|${supplier}|${selectedYear}`) 
-                                 || newSalesPriceMap.get(`${pack}|${selectedYear}`) 
-                                 || 0;
-                const purchasePrice = newPurchasePriceMap.get(`${pack}|${supplier}|${selectedYear}`) || 0;
-                combinedMap.set(`${pack}|${supplier}`, { sales: salesPrice, purchase: purchasePrice });
-              });
-            }
-          });
-        }
-
-        setPriceConfig(combinedMap);
-        setIsLoadingPrices(false);
-        setLoadingProgress(100);
-        // Show data immediately after prices are loaded
-        setDataReady(true);
-      } catch (error) {
-        console.error('Error loading prices:', error);
-        setIsLoadingPrices(false);
-        setLoadingProgress(100);
-        setDataReady(true);
-      }
-    };
-
-    fetchPrices();
-  }, [selectedFruit, selectedYear, priceKey, data]);
+  const { priceConfig, salesPriceMap, salesPricesByPackSupplier, purchasePriceMap } = useMemo(
+    () => buildPriceMaps(relevantPrices, selectedYear),
+    [relevantPrices, selectedYear]
+  );
 
   // Filter data by fruit type and year
   const filteredData = useMemo(() => {
@@ -490,23 +340,20 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
             </div>
             <div className="flex items-center gap-3">
               <p className="text-sm text-muted-foreground">
-                {isLoadingPrices || !dataReady 
-                  ? 'Calculating financial data...' 
+                {isLoadingPrices
+                  ? 'Calculating financial data...'
                   : 'Financial overview by pack and supplier'}
               </p>
-              {(isLoadingPrices || !dataReady) && (
+              {isLoadingPrices && (
                 <div className="h-1 w-32 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-300 ease-out"
-                    style={{ width: `${loadingProgress}%` }}
-                  />
+                  <div className="h-full w-1/2 bg-primary animate-pulse" />
                 </div>
               )}
             </div>
           </div>
-          <PriceManagement 
-            selectedFruit={selectedFruit} 
-            onPriceUpdate={() => setPriceKey(prev => prev + 1)}
+          <PriceManagement
+            selectedFruit={selectedFruit}
+            shippingData={data}
             allPacks={uniquePacks}
             allSuppliers={uniqueSuppliers}
             availableYears={years}
@@ -595,21 +442,21 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           label="Total Cartons"
           value={grandTotals.cartons}
           variant="large"
-          isLoading={isLoadingPrices || !dataReady}
+          isLoading={isLoadingPrices}
           delay={0}
         />
         <StatCard
           label="Total Sales"
           value={formatCurrency(grandTotals.sales)}
           variant="large"
-          isLoading={isLoadingPrices || !dataReady}
+          isLoading={isLoadingPrices}
           delay={100}
         />
         <StatCard
           label="Total Purchase"
           value={formatCurrency(grandTotals.purchase)}
           variant="large"
-          isLoading={isLoadingPrices || !dataReady}
+          isLoading={isLoadingPrices}
           delay={200}
         />
         <div 
@@ -618,7 +465,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
             grandTotals.profit >= 0 
               ? "border-green-500/30" 
               : "border-red-500/30",
-            !isLoadingPrices && dataReady && "animate-scale-in"
+            !isLoadingPrices && "animate-scale-in"
           )}
           style={{
             animationDelay: '300ms',
@@ -626,7 +473,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           }}
         >
           <p className="stat-card-label">Net Profit</p>
-          {(isLoadingPrices || !dataReady) ? (
+          {isLoadingPrices ? (
             <div className="relative overflow-hidden rounded-md">
               <div 
                 className="h-10 bg-muted rounded"

@@ -9,6 +9,7 @@ import { UserManagement } from '@/components/admin/UserManagement';
 import { ConfigurationManagement } from '@/components/admin/ConfigurationManagement';
 import { DataLogs } from '@/components/admin/DataLogs';
 import { useShippingData } from '@/hooks/useShippingData';
+import { usePrices } from '@/hooks/usePrices';
 import { useAuth } from '@/contexts/AuthContext';
 
 type Page = 'dashboard' | 'analysis' | 'data' | 'pnl' | 'users' | 'configuration' | 'data-logs';
@@ -47,6 +48,9 @@ const Index = () => {
     deleteRecord,
     updateInvoiceNumber,
   } = useShippingData();
+
+  // Prefetch price configuration in parallel with shipping data
+  usePrices();
 
   return (
     <div className="flex min-h-screen bg-background">

@@ -19,8 +19,8 @@ const queryClient = new QueryClient({
       refetchOnMount: false,
       refetchOnReconnect: false,
       // Cache for longer
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+      staleTime: 1000 * 60 * 15,
+      gcTime: 1000 * 60 * 60,
       // Retry configuration
       retry: 1,
       retryDelay: 1000,

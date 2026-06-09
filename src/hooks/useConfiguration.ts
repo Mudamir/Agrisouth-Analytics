@@ -2,6 +2,7 @@
  * Hook to fetch configuration values from Supabase
  */
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
@@ -24,11 +25,10 @@ export function useConfiguration() {
 
       const { data, error: fetchError } = await supabase
         .from('configuration_values')
-        .select('*')
+        .select('id, type, value, created_at')
         .order('value');
 
       if (fetchError) {
-        // If table doesn't exist, return empty array
         if (fetchError.code === '42P01') {
           return [];
         }
@@ -37,34 +37,41 @@ export function useConfiguration() {
 
       return (data || []) as ConfigValue[];
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
-  // Helper functions to get values by type
-  const getPols = () => configs.filter(c => c.type === 'pol').map(c => c.value).sort();
-  const getDestinations = () => configs.filter(c => c.type === 'destination').map(c => c.value).sort();
-  const getBananaSuppliers = () => configs.filter(c => c.type === 'supplier_bananas').map(c => c.value).sort();
-  const getPineappleSuppliers = () => configs.filter(c => c.type === 'supplier_pineapples').map(c => c.value).sort();
-  const getSLines = () => configs.filter(c => c.type === 's_line').map(c => c.value).sort();
+  const pols = useMemo(
+    () => configs.filter((c) => c.type === 'pol').map((c) => c.value).sort(),
+    [configs]
+  );
+  const destinations = useMemo(
+    () => configs.filter((c) => c.type === 'destination').map((c) => c.value).sort(),
+    [configs]
+  );
+  const bananaSuppliers = useMemo(
+    () => configs.filter((c) => c.type === 'supplier_bananas').map((c) => c.value).sort(),
+    [configs]
+  );
+  const pineappleSuppliers = useMemo(
+    () => configs.filter((c) => c.type === 'supplier_pineapples').map((c) => c.value).sort(),
+    [configs]
+  );
+  const sLines = useMemo(
+    () => configs.filter((c) => c.type === 's_line').map((c) => c.value).sort(),
+    [configs]
+  );
 
   return {
     configs,
     isLoading,
     error,
-    getPols,
-    getDestinations,
-    getBananaSuppliers,
-    getPineappleSuppliers,
-    getSLines,
+    getPols: () => pols,
+    getDestinations: () => destinations,
+    getBananaSuppliers: () => bananaSuppliers,
+    getPineappleSuppliers: () => pineappleSuppliers,
+    getSLines: () => sLines,
   };
 }
-
-
-
-
-
-
-
-
-
-

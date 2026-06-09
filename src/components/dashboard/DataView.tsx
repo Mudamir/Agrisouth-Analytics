@@ -59,7 +59,7 @@ const pineapplePacks = ['7C', '8C', '9C', '10C', '12C'];
 
 export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataViewProps) {
   const { getPols, getDestinations, getBananaSuppliers, getPineappleSuppliers, getSLines, isLoading: configLoading } = useConfiguration();
-  const { userRole } = useAuth();
+  const { userRole, isAdmin } = useAuth();
   const isViewer = userRole === 'viewer';
   const [isOpen, setIsOpen] = useState(false);
   const [filterItem, setFilterItem] = useState<FruitType | 'ALL'>('ALL');
@@ -107,8 +107,6 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
 
   // Track highest invoice sequence assigned this session (before DB refresh)
   const sessionInvoiceMaxRef = useRef<Map<string, number>>(new Map());
-  const invoiceDraftRequestIdRef = useRef(0);
-
   // Delete confirmation modal state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<ShippingRecord | null>(null);
@@ -122,6 +120,11 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
   const { user } = useAuth();
 
   const handleInvoiceNumberSave = async (record: ShippingRecord, rawValue: string) => {
+    if (!isAdmin) {
+      toast.error('Only administrators can edit invoice numbers');
+      return;
+    }
+
     const newValue = rawValue.trim().toUpperCase();
     const oldValue = (record.invoiceNo ?? '').trim();
 
@@ -619,36 +622,18 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
     return highest;
   };
 
-  // Next incremental invoice number for item/year (all records in that year + session)
-  const getNextInvoiceNumber = async (
+  // Next incremental invoice number for item/year (uses in-memory shipping data)
+  const getNextInvoiceNumber = (
     item: FruitType,
     year: number,
     localRecords: ShippingRecord[]
-  ): Promise<string | null> => {
-    if (!supabase) return null;
-
+  ): string | null => {
     const prefix = getInvoicePrefix(item);
     const sessionKey = getSessionInvoiceKey(item, year);
 
-    const { data: dbRecords, error } = await supabase
-      .from('shipping_records')
-      .select('invoice_no')
-      .eq('item', item)
-      .like('invoice_no', `${prefix}${year}%`)
-      .not('invoice_no', 'is', null);
-
-    if (error) {
-      console.error('Error fetching invoice numbers:', error);
-    }
-
-    const localInvoiceNumbers = localRecords
+    const allInvoiceNumbers = localRecords
       .filter((r) => r.item === item && r.invoiceNo)
       .map((r) => r.invoiceNo!);
-
-    const allInvoiceNumbers = [
-      ...(dbRecords || []).map((r) => r.invoice_no!).filter(Boolean),
-      ...localInvoiceNumbers,
-    ];
 
     let highest = getHighestInvoiceSequence(allInvoiceNumbers, prefix, year);
     const sessionHigh = sessionInvoiceMaxRef.current.get(sessionKey) || 0;
@@ -669,30 +654,22 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
   };
 
   // Function to generate or retrieve invoice number and date based on billing number (1:1 ratio)
-  const getInvoiceData = async (billingNo: string | null, item: FruitType, year: number, week: number): Promise<{ invoiceNo: string | null; invoiceDate: string | null }> => {
-    if (!supabase) {
-      return { invoiceNo: null, invoiceDate: null };
-    }
-
+  const getInvoiceData = (
+    billingNo: string | null,
+    item: FruitType,
+    year: number
+  ): { invoiceNo: string | null; invoiceDate: string | null } => {
     try {
       if (billingNo?.trim()) {
-        const { data: existingRecords, error: existingError } = await supabase
-          .from('shipping_records')
-          .select('invoice_no, invoice_date')
-          .eq('billing_no', billingNo.trim())
-          .not('invoice_no', 'is', null)
-          .limit(1);
+        const existingRecord = data.find(
+          (r) => r.billingNo?.trim() === billingNo.trim() && r.invoiceNo
+        );
 
-        if (existingError) {
-          console.error('Error checking for existing billing number:', existingError);
-        }
-
-        if (existingRecords && existingRecords.length > 0 && existingRecords[0].invoice_no) {
-          const existingRecord = existingRecords[0];
+        if (existingRecord?.invoiceNo) {
           let formattedInvoiceDate: string | null = null;
-          if (existingRecord.invoice_date) {
+          if (existingRecord.invoiceDate) {
             try {
-              const date = new Date(existingRecord.invoice_date);
+              const date = new Date(existingRecord.invoiceDate);
               if (!isNaN(date.getTime())) {
                 formattedInvoiceDate = format(date, 'MM/dd/yyyy');
               }
@@ -701,13 +678,13 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
             }
           }
           return {
-            invoiceNo: existingRecord.invoice_no,
+            invoiceNo: existingRecord.invoiceNo,
             invoiceDate: formattedInvoiceDate,
           };
         }
       }
 
-      const newInvoiceNo = await getNextInvoiceNumber(item, year, data);
+      const newInvoiceNo = getNextInvoiceNumber(item, year, data);
       const formattedInvoiceDate = format(new Date(), 'MM/dd/yyyy');
 
       return {
@@ -729,18 +706,10 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
   useEffect(() => {
     if (!isOpen) return;
 
-    const requestId = ++invoiceDraftRequestIdRef.current;
-    (async () => {
-      const draft = await getInvoiceData(
-        newRecord.billingNo,
-        newRecord.item,
-        newRecord.year,
-        newRecord.week
-      );
-      if (invoiceDraftRequestIdRef.current !== requestId || !draft.invoiceNo) return;
-      setNewRecord((prev) => ({ ...prev, invoiceNo: draft.invoiceNo! }));
-    })();
-  }, [isOpen, newRecord.item, newRecord.year, newRecord.week, newRecord.billingNo, invoiceNumbersSignature]);
+    const draft = getInvoiceData(newRecord.billingNo, newRecord.item, newRecord.year);
+    if (!draft.invoiceNo) return;
+    setNewRecord((prev) => ({ ...prev, invoiceNo: draft.invoiceNo! }));
+  }, [isOpen, newRecord.item, newRecord.year, newRecord.billingNo, invoiceNumbersSignature]);
 
   const handleSubmit = async () => {
     if (!newRecord.etdDate) {
@@ -756,7 +725,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
     // Get invoice number and invoice date based on billing number
     // If billing number exists, reuse both invoice number and invoice date (1:1 ratio)
     // If billing number is new, get highest invoice number from previous week and increment by 1
-    const invoiceData = await getInvoiceData(newRecord.billingNo, newRecord.item, newRecord.year, newRecord.week);
+    const invoiceData = getInvoiceData(newRecord.billingNo, newRecord.item, newRecord.year);
     const invoiceNo = newRecord.invoiceNo.trim() || invoiceData.invoiceNo;
     // Convert invoice date from MM/dd/yyyy to yyyy-MM-dd (ISO format) for database
     let formattedInvoiceDate: string | null = null;
@@ -1622,8 +1591,9 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                           <Label className="text-xs font-medium">Billing No. (BL #)</Label>
                           <Input
                             className="h-9"
-                            placeholder="Enter billing number"
+                            placeholder={isAdmin ? 'Enter billing number' : 'Admin only'}
                             value={newRecord.billingNo}
+                            disabled={!isAdmin}
                             onChange={(e) => setNewRecord({ ...newRecord, billingNo: e.target.value })}
                           />
                         </div>
@@ -1633,6 +1603,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                             className="h-9 font-mono"
                             placeholder={`${getInvoicePrefix(newRecord.item)}${newRecord.year}001`}
                             value={newRecord.invoiceNo}
+                            disabled={!isAdmin}
                             onChange={(e) => setNewRecord({ ...newRecord, invoiceNo: e.target.value.toUpperCase() })}
                           />
                         </div>
@@ -2066,9 +2037,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                     className="text-sm p-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {isViewer ? (
-                      <span>{record.invoiceNo || '-'}</span>
-                    ) : (
+                    {isAdmin ? (
                       <Input
                         key={`${record.id}-${record.invoiceNo ?? ''}`}
                         defaultValue={record.invoiceNo ?? ''}
@@ -2088,6 +2057,8 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                           }
                         }}
                       />
+                    ) : (
+                      <span>{record.invoiceNo || '-'}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm">{record.invoiceDate || '-'}</TableCell>

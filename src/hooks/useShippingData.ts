@@ -33,7 +33,66 @@ function transformRecord(dbRecord: DatabaseShippingRecord): ShippingRecord {
   };
 }
 
-// Helper functions for unique values
+const SHIPPING_RECORD_COLUMNS =
+  'id,year,week,etd,eta,pol,item,destination,supplier,s_line,container,pack,l_cont,cartons,type,customer_name,invoice_no,invoice_date,vessel,billing_no';
+
+const SHIPPING_BATCH_SIZE = 1000;
+
+async function fetchAllShippingRecordsFromSupabase(): Promise<ShippingRecord[]> {
+  if (!supabase) {
+    return [];
+  }
+
+  const { count, error: countError } = await supabase
+    .from('shipping_records')
+    .select('id', { count: 'exact', head: true });
+
+  if (countError) {
+    throw countError;
+  }
+
+  const total = count ?? 0;
+  if (total === 0) {
+    return [];
+  }
+
+  const batchCount = Math.ceil(total / SHIPPING_BATCH_SIZE);
+  const batchRequests = Array.from({ length: batchCount }, (_, index) => {
+    const from = index * SHIPPING_BATCH_SIZE;
+    const to = from + SHIPPING_BATCH_SIZE - 1;
+
+    return supabase
+      .from('shipping_records')
+      .select(SHIPPING_RECORD_COLUMNS)
+      .order('year', { ascending: false })
+      .order('week', { ascending: false })
+      .range(from, to);
+  });
+
+  const batchResults = await Promise.all(batchRequests);
+  const allRecords: DatabaseShippingRecord[] = [];
+
+  for (const { data, error } of batchResults) {
+    if (error) {
+      throw error;
+    }
+    if (data?.length) {
+      allRecords.push(...(data as DatabaseShippingRecord[]));
+    }
+  }
+
+  return allRecords.map(transformRecord);
+}
+
+function upsertShippingRecordCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  updater: (records: ShippingRecord[]) => ShippingRecord[]
+) {
+  queryClient.setQueryData<ShippingRecord[]>(['shipping-records'], (current) =>
+    updater(current ?? [])
+  );
+}
+
 function getUniqueYears(data: ShippingRecord[]): number[] {
   return [...new Set(data.map(r => r.year))].sort((a, b) => b - a);
 }
@@ -60,7 +119,7 @@ function getUniqueDestinations(data: ShippingRecord[]): string[] {
 
 export function useShippingData() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
 
   const [selectedFruit, setSelectedFruit] = useState<FruitType>('BANANAS');
   const [filters, setFilters] = useState<FilterState>({
@@ -73,90 +132,28 @@ export function useShippingData() {
   });
 
   // Fetch all shipping records from Supabase
-  const { data: allData = [], isLoading, error } = useQuery({
+  const { data: allData = [], isLoading, error, isFetching } = useQuery({
     queryKey: ['shipping-records'],
     queryFn: async () => {
       logger.debug('Fetching shipping records...', { user: user?.id, supabase: !!supabase });
-      
-      if (!supabase) {
-        logger.warn('Supabase not configured. Using empty data.');
-        return [];
-      }
 
       try {
-        // Fetch ALL records from the database using batching
-        // This ensures we get all data regardless of dataset size
-        let allRecords: DatabaseShippingRecord[] = [];
-        let from = 0;
-        const batchSize = 1000; // Supabase default limit is 1000, so we'll batch in chunks
-        let hasMore = true;
-        let consecutiveErrors = 0;
-        const maxErrors = 3;
-
-        logger.debug('Starting to fetch all shipping records...');
-
-        while (hasMore && consecutiveErrors < maxErrors) {
-          const { data: batch, error: batchError } = await supabase
-            .from('shipping_records')
-            .select('*')
-            .order('year', { ascending: false })
-            .order('week', { ascending: false })
-            .range(from, from + batchSize - 1);
-
-          if (batchError) {
-            logger.safeError(`Error fetching batch ${from}-${from + batchSize - 1}`, batchError);
-            consecutiveErrors++;
-            
-            // Check if it's a permission error
-            if (batchError.code === '42501' || batchError.message?.includes('permission denied') || batchError.message?.includes('policy')) {
-              logger.error('Permission denied. Check RLS policies and user permissions.');
-              // Return what we have so far instead of throwing
-              break;
-            }
-            
-            // If too many consecutive errors, break and return what we have
-            if (consecutiveErrors >= maxErrors) {
-              logger.warn(`Too many consecutive errors (${consecutiveErrors}), stopping batch fetch. Returning ${allRecords.length} records fetched so far.`);
-              break;
-            }
-            
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            // Continue to next batch
-            from += batchSize;
-            continue;
-          }
-
-          consecutiveErrors = 0; // Reset error counter on success
-
-          if (batch && batch.length > 0) {
-            allRecords = [...allRecords, ...batch];
-            logger.debug(`Fetched batch: ${batch.length} records (total: ${allRecords.length})`);
-            from += batchSize;
-            hasMore = batch.length === batchSize; // Continue if we got a full batch
-          } else {
-            // No more data
-            hasMore = false;
-            logger.debug('No more records to fetch');
-          }
-        }
-
-        logger.info(`Successfully fetched ${allRecords.length} records from Supabase`);
-        return allRecords.map(transformRecord);
+        const records = await fetchAllShippingRecordsFromSupabase();
+        logger.info(`Successfully fetched ${records.length} records from Supabase`);
+        return records;
       } catch (err) {
         logger.safeError('Failed to fetch shipping records', err);
-        // Return empty array instead of throwing to prevent UI crash
         return [];
       }
     },
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes (longer cache = faster)
-    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
-    // Enable background refetching for fresh data
-    refetchOnWindowFocus: false, // Don't refetch on window focus (faster)
-    refetchOnMount: true, // Always refetch on mount to ensure we get all data
-    refetchOnReconnect: true, // Refetch when connection is restored
-    retry: 3, // Retry failed requests up to 3 times
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    enabled: !!supabase && !authLoading,
+    staleTime: 1000 * 60 * 15,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: true,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
   });
 
   const fruitData = useMemo(() => {
@@ -493,8 +490,8 @@ export function useShippingData() {
 
       return transformRecord(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipping-records'] });
+    onSuccess: (newRecord) => {
+      upsertShippingRecordCache(queryClient, (records) => [newRecord, ...records]);
     },
     onError: (error: any) => {
       // Handle database errors (including unique constraint violations if database has them)
@@ -656,7 +653,9 @@ export function useShippingData() {
     },
     onSuccess: (result) => {
       logger.debug('Delete mutation succeeded:', result);
-      queryClient.invalidateQueries({ queryKey: ['shipping-records'] });
+      upsertShippingRecordCache(queryClient, (records) =>
+        records.filter((record) => record.id !== result.id)
+      );
     },
     onError: (error: Error) => {
       logger.safeError('Delete mutation error', error);
@@ -687,6 +686,10 @@ export function useShippingData() {
         throw new Error('Supabase not configured');
       }
 
+      if (!isAdmin) {
+        throw new Error('Only administrators can edit invoice numbers');
+      }
+
       const normalizedInvoiceNo = normalizeInvoiceNumber(invoiceNo);
 
       if (normalizedInvoiceNo) {
@@ -713,8 +716,10 @@ export function useShippingData() {
 
       return transformRecord(data[0] as DatabaseShippingRecord);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipping-records'] });
+    onSuccess: (updatedRecord) => {
+      upsertShippingRecordCache(queryClient, (records) =>
+        records.map((record) => (record.id === updatedRecord.id ? updatedRecord : record))
+      );
     },
     onError: (error: Error) => {
       logger.safeError('Update invoice number mutation error', error);
@@ -776,7 +781,8 @@ export function useShippingData() {
     addRecord,
     deleteRecord,
     updateInvoiceNumber,
-    isLoading,
+    isLoading: isLoading || authLoading,
+    isFetching,
     error,
   };
 }

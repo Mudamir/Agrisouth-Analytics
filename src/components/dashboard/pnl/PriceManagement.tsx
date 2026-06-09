@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { FruitType } from '@/types/shipping';
+import { FruitType, ShippingRecord } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { PRICES_QUERY_KEY, usePrices } from '@/hooks/usePrices';
 
 interface SalesPrice {
   id: string;
@@ -38,27 +40,107 @@ interface PurchasePrice {
 
 interface PriceManagementProps {
   selectedFruit: FruitType;
-  onPriceUpdate?: () => void;
+  shippingData?: ShippingRecord[];
   allPacks?: string[];
   allSuppliers?: string[];
   availableYears?: number[];
 }
 
-export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], allSuppliers = [], availableYears = [] }: PriceManagementProps) {
+export function PriceManagement({
+  selectedFruit,
+  shippingData = [],
+  allPacks = [],
+  allSuppliers = [],
+  availableYears = [],
+}: PriceManagementProps) {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const { data: allPrices = [], isLoading: pricesLoading } = usePrices();
   const [isOpen, setIsOpen] = useState(false);
-  const [salesPrices, setSalesPrices] = useState<SalesPrice[]>([]);
-  const [purchasePrices, setPurchasePrices] = useState<PurchasePrice[]>([]);
-  const [availablePacksFromData, setAvailablePacksFromData] = useState<string[]>([]);
-  const [availableSuppliersFromData, setAvailableSuppliersFromData] = useState<string[]>([]);
   const [editingSalesPrice, setEditingSalesPrice] = useState<{ pack: string; supplier?: string; price: number } | null>(null);
   const [editingPurchasePrice, setEditingPurchasePrice] = useState<{ pack: string; supplier: string; price: number } | null>(null);
   const [editingBulkSalesPrice, setEditingBulkSalesPrice] = useState<{ pack: string; price: number } | null>(null);
   const [editingBulkPurchasePrice, setEditingBulkPurchasePrice] = useState<{ pack: string; price: number } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [filterFruit, setFilterFruit] = useState<FruitType>(selectedFruit);
   const [filterYear, setFilterYear] = useState<number>(new Date().getFullYear());
+
+  const normalizedFilterFruit = filterFruit.toUpperCase() as FruitType;
+  const isLoading = isOpen && pricesLoading;
+
+  const availablePacksFromData = useMemo(() => {
+    const packSet = new Set<string>();
+    shippingData
+      .filter((r) => r.item === normalizedFilterFruit && r.year === filterYear && r.pack?.trim())
+      .forEach((r) => packSet.add(r.pack.trim()));
+
+    if (packSet.size === 0) {
+      allPrices
+        .filter((p) => p.item === normalizedFilterFruit && p.year === filterYear && p.pack?.trim())
+        .forEach((p) => packSet.add(p.pack.trim()));
+    }
+
+    return Array.from(packSet);
+  }, [shippingData, normalizedFilterFruit, filterYear, allPrices]);
+
+  const availableSuppliersFromData = useMemo(() => {
+    const supplierSet = new Set<string>();
+    shippingData
+      .filter((r) => r.item === normalizedFilterFruit && r.year === filterYear && r.supplier?.trim())
+      .forEach((r) => supplierSet.add(r.supplier.trim()));
+
+    if (supplierSet.size === 0) {
+      allPrices
+        .filter((p) => p.item === normalizedFilterFruit && p.year === filterYear && p.supplier?.trim())
+        .forEach((p) => supplierSet.add(p.supplier!.trim()));
+    }
+
+    return Array.from(supplierSet).sort();
+  }, [shippingData, normalizedFilterFruit, filterYear, allPrices]);
+
+  const salesPrices = useMemo(
+    () =>
+      allPrices
+        .filter((p) => p.item === normalizedFilterFruit && p.price_type === 'sales' && p.year === filterYear)
+        .map((p) => ({
+          id: p.id,
+          item: p.item,
+          pack: p.pack,
+          price: p.price,
+          price_type: 'sales' as const,
+          supplier: p.supplier,
+          year: p.year,
+          updated_at: p.updated_at,
+        })),
+    [allPrices, normalizedFilterFruit, filterYear]
+  );
+
+  const purchasePrices = useMemo(
+    () =>
+      allPrices
+        .filter(
+          (p) =>
+            p.item === normalizedFilterFruit &&
+            p.price_type === 'purchase' &&
+            p.year === filterYear &&
+            p.supplier
+        )
+        .map((p) => ({
+          id: p.id,
+          item: p.item,
+          pack: p.pack,
+          supplier: p.supplier!,
+          price: p.price,
+          price_type: 'purchase' as const,
+          year: p.year,
+          updated_at: p.updated_at,
+        })),
+    [allPrices, normalizedFilterFruit, filterYear]
+  );
+
+  const refreshPrices = () => {
+    queryClient.invalidateQueries({ queryKey: PRICES_QUERY_KEY });
+  };
 
   // Get unique packs - ONLY from shipping_records for the selected year/fruit
   // This ensures we only show packs that actually have data (cartons) for that combination
@@ -157,298 +239,6 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
     }
   }, [isOpen, selectedFruit]);
 
-  // Fetch prices from Supabase
-  useEffect(() => {
-    if (isOpen) {
-      fetchPrices();
-    }
-  }, [isOpen, filterFruit, filterYear]);
-
-  const fetchPrices = async () => {
-    setIsLoading(true);
-    try {
-      if (!supabase) {
-        toast.error('Database not configured');
-        return;
-      }
-
-      // Ensure fruit is uppercase (database constraint requires 'BANANAS' or 'PINEAPPLES')
-      const normalizedFruit = filterFruit.toUpperCase() as FruitType;
-      
-      console.log('🔍 Fetching prices for:', { fruit: normalizedFruit, year: filterYear });
-
-      // Reset available packs/suppliers before fetching
-      setAvailablePacksFromData([]);
-      setAvailableSuppliersFromData([]);
-
-      // Fetch unique packs from shipping_records for the selected year and fruit
-      try {
-        // Use RPC call for distinct values to avoid hitting row limits
-        const { data: packData, error: packError } = await supabase
-          .rpc('get_distinct_packs', {
-            p_year: filterYear,
-            p_item: normalizedFruit
-          });
-
-        if (packError) {
-          console.error('Error with RPC, falling back to regular query:', packError);
-          
-          // Fallback: fetch with high limit and use batch approach
-          let allPacks = new Set<string>();
-          let from = 0;
-          const batchSize = 1000;
-          let hasMore = true;
-
-          while (hasMore) {
-            const { data: batch, error: batchError } = await supabase
-          .from('shipping_records')
-          .select('pack')
-              .eq('item', normalizedFruit)
-              .eq('year', filterYear)
-              .not('pack', 'is', null)
-              .neq('pack', '')
-              .range(from, from + batchSize - 1);
-
-            if (batchError) {
-              console.error('Error fetching packs batch:', batchError);
-              break;
-            }
-
-            if (batch && batch.length > 0) {
-              batch.forEach(record => {
-                if (record.pack && record.pack.trim()) {
-                  allPacks.add(record.pack.trim());
-                }
-              });
-              from += batchSize;
-              hasMore = batch.length === batchSize;
-            } else {
-              hasMore = false;
-            }
-          }
-          
-          const packsFromShipping = Array.from(allPacks).sort();
-          setAvailablePacksFromData(packsFromShipping);
-          
-          // Fallback: If no packs from shipping_records, try to get from existing prices
-          if (packsFromShipping.length === 0) {
-            console.log('No packs from shipping_records, checking existing prices...');
-            const { data: pricePackData } = await supabase
-              .from('prices')
-              .select('pack')
-              .eq('item', normalizedFruit)
-              .eq('price_type', 'sales')
-          .eq('year', filterYear)
-          .not('pack', 'is', null)
-          .neq('pack', '');
-
-            if (pricePackData && pricePackData.length > 0) {
-          const packSet = new Set<string>();
-              pricePackData.forEach(p => {
-                if (p.pack && p.pack.trim()) {
-                  packSet.add(p.pack.trim());
-            }
-          });
-          setAvailablePacksFromData(Array.from(packSet).sort());
-            }
-          }
-        } else if (packData && Array.isArray(packData)) {
-          // RPC returns array of objects with 'pack' property: [{pack: '7C'}, {pack: '8C'}]
-          const uniquePacks = [...new Set(
-            packData
-              .map(item => typeof item === 'string' ? item : item.pack) // Handle both string and object
-              .filter(p => p && typeof p === 'string' && p.trim())
-          )].sort();
-          console.log('📦 Packs from RPC:', uniquePacks);
-          setAvailablePacksFromData(uniquePacks);
-          
-          // Fallback: If no packs from shipping_records, try to get from existing prices
-          if (uniquePacks.length === 0) {
-            console.log('⚠️ No packs from shipping_records, checking existing prices...');
-            const { data: pricePackData } = await supabase
-              .from('prices')
-              .select('pack')
-              .eq('item', normalizedFruit)
-              .eq('price_type', 'sales')
-              .eq('year', filterYear)
-              .not('pack', 'is', null)
-              .neq('pack', '');
-            
-            console.log('📦 Packs from prices (sales):', pricePackData?.length || 0);
-            
-            if (pricePackData && pricePackData.length > 0) {
-              const packSet = new Set<string>();
-              pricePackData.forEach(p => {
-                if (p.pack && p.pack.trim()) {
-                  packSet.add(p.pack.trim());
-                }
-              });
-              const fallbackPacks = Array.from(packSet).sort();
-              console.log('📦 Fallback packs:', fallbackPacks);
-              setAvailablePacksFromData(fallbackPacks);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching packs from shipping_records:', err);
-      }
-
-      // Fetch unique suppliers from shipping_records for the selected year and fruit
-      try {
-        // Use RPC call for distinct values to avoid hitting row limits
-        // This ensures we get ALL unique suppliers, not just first 1000 records
-        const { data: supplierData, error: supplierError } = await supabase
-          .rpc('get_distinct_suppliers', {
-            p_year: filterYear,
-            p_item: normalizedFruit
-          });
-
-        if (supplierError) {
-          console.error('Error with RPC, falling back to regular query:', supplierError);
-          
-          // Fallback: fetch with high limit and use batch approach
-          let allSuppliers = new Set<string>();
-          let from = 0;
-          const batchSize = 1000;
-          let hasMore = true;
-
-          while (hasMore) {
-            const { data: batch, error: batchError } = await supabase
-          .from('shipping_records')
-          .select('supplier')
-              .eq('item', normalizedFruit)
-              .eq('year', filterYear)
-              .not('supplier', 'is', null)
-              .neq('supplier', '')
-              .range(from, from + batchSize - 1);
-
-            if (batchError) {
-              console.error('Error fetching suppliers batch:', batchError);
-              break;
-            }
-
-            if (batch && batch.length > 0) {
-              batch.forEach(record => {
-                if (record.supplier && record.supplier.trim()) {
-                  allSuppliers.add(record.supplier.trim());
-                }
-              });
-              from += batchSize;
-              hasMore = batch.length === batchSize;
-            } else {
-              hasMore = false;
-            }
-          }
-          
-          const suppliersFromShipping = Array.from(allSuppliers).sort();
-          setAvailableSuppliersFromData(suppliersFromShipping);
-          
-          // Fallback: If no suppliers from shipping_records, try to get from existing prices
-          if (suppliersFromShipping.length === 0) {
-            console.log('No suppliers from shipping_records, checking existing prices...');
-            const { data: priceSupplierData } = await supabase
-              .from('prices')
-              .select('supplier')
-              .eq('item', normalizedFruit)
-              .eq('price_type', 'purchase')
-          .eq('year', filterYear)
-          .not('supplier', 'is', null)
-          .neq('supplier', '');
-
-            if (priceSupplierData && priceSupplierData.length > 0) {
-          const supplierSet = new Set<string>();
-              priceSupplierData.forEach(p => {
-                if (p.supplier && p.supplier.trim()) {
-                  supplierSet.add(p.supplier.trim());
-            }
-          });
-          setAvailableSuppliersFromData(Array.from(supplierSet).sort());
-            }
-          }
-        } else if (supplierData && Array.isArray(supplierData)) {
-          // RPC returns array of objects with 'supplier' property: [{supplier: 'LAPANDAY'}, {supplier: 'PHILPACK'}]
-          const uniqueSuppliers = [...new Set(
-            supplierData
-              .map(item => typeof item === 'string' ? item : item.supplier) // Handle both string and object
-              .filter(s => s && typeof s === 'string' && s.trim())
-          )].sort();
-          console.log('👥 Suppliers from RPC:', uniqueSuppliers);
-          setAvailableSuppliersFromData(uniqueSuppliers);
-          
-          // Fallback: If no suppliers from shipping_records, try to get from existing prices
-          if (uniqueSuppliers.length === 0) {
-            console.log('⚠️ No suppliers from shipping_records, checking existing prices...');
-            const { data: priceSupplierData } = await supabase
-              .from('prices')
-              .select('supplier')
-              .eq('item', normalizedFruit)
-              .eq('price_type', 'purchase')
-              .eq('year', filterYear)
-              .not('supplier', 'is', null)
-              .neq('supplier', '');
-            
-            console.log('👥 Suppliers from prices (purchase):', priceSupplierData?.length || 0);
-            
-            if (priceSupplierData && priceSupplierData.length > 0) {
-              const supplierSet = new Set<string>();
-              priceSupplierData.forEach(p => {
-                if (p.supplier && p.supplier.trim()) {
-                  supplierSet.add(p.supplier.trim());
-                }
-              });
-              const fallbackSuppliers = Array.from(supplierSet).sort();
-              console.log('👥 Fallback suppliers:', fallbackSuppliers);
-              setAvailableSuppliersFromData(fallbackSuppliers);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching suppliers from shipping_records:', err);
-      }
-
-      // Fetch sales prices from unified prices table
-      const { data: salesData, error: salesError } = await supabase
-        .from('prices')
-        .select('id, item, pack, price, price_type, supplier, year, updated_at')
-        .eq('item', normalizedFruit)
-        .eq('price_type', 'sales')
-        .eq('year', filterYear)
-        .order('pack')
-        .order('supplier');
-
-      if (salesError) {
-        console.error('Error fetching sales prices:', salesError);
-        throw salesError;
-      }
-
-      setSalesPrices(salesData || []);
-
-      // Fetch purchase prices from unified prices table
-      const { data: purchaseData, error: purchaseError } = await supabase
-        .from('prices')
-        .select('id, item, pack, price, price_type, supplier, year, updated_at')
-        .eq('item', normalizedFruit)
-        .eq('price_type', 'purchase')
-        .eq('year', filterYear)
-        .order('pack')
-        .order('supplier');
-
-      if (purchaseError) {
-        console.error('Error fetching purchase prices:', purchaseError);
-        throw purchaseError;
-      }
-
-      setPurchasePrices(purchaseData || []);
-
-      // Prices are set in the error handling above
-    } catch (error: any) {
-      console.error('Error fetching prices:', error);
-      toast.error('Failed to load prices');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSaveSalesPrice = async () => {
     if (!editingSalesPrice) return;
     
@@ -537,8 +327,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
 
       toast.success('Sales price updated successfully');
       setEditingSalesPrice(null);
-      await fetchPrices();
-      onPriceUpdate?.();
+      refreshPrices();
     } catch (error: any) {
       console.error('Error saving sales price:', error);
       if (!error.message || !error.message.includes('Failed to')) {
@@ -630,8 +419,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
 
       toast.success('Purchase price updated successfully');
       setEditingPurchasePrice(null);
-      await fetchPrices();
-      onPriceUpdate?.();
+      refreshPrices();
     } catch (error: any) {
       console.error('Error saving purchase price:', error);
       if (!error.message || !error.message.includes('Failed to')) {
@@ -714,8 +502,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
       }
 
       setEditingBulkSalesPrice(null);
-      await fetchPrices();
-      onPriceUpdate?.();
+      refreshPrices();
     } catch (error: any) {
       console.error('Error saving bulk sales prices:', error);
       toast.error('Failed to save bulk prices: ' + (error.message || 'Unknown error'));
@@ -796,8 +583,7 @@ export function PriceManagement({ selectedFruit, onPriceUpdate, allPacks = [], a
       }
 
       setEditingBulkPurchasePrice(null);
-      await fetchPrices();
-      onPriceUpdate?.();
+      refreshPrices();
     } catch (error: any) {
       console.error('Error saving bulk purchase prices:', error);
       toast.error('Failed to save bulk prices: ' + (error.message || 'Unknown error'));
