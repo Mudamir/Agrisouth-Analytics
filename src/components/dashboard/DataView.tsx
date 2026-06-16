@@ -1591,9 +1591,8 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                           <Label className="text-xs font-medium">Billing No. (BL #)</Label>
                           <Input
                             className="h-9"
-                            placeholder={isAdmin ? 'Enter billing number' : 'Admin only'}
+                            placeholder="Enter billing number"
                             value={newRecord.billingNo}
-                            disabled={!isAdmin}
                             onChange={(e) => setNewRecord({ ...newRecord, billingNo: e.target.value })}
                           />
                         </div>
@@ -1603,7 +1602,6 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                             className="h-9 font-mono"
                             placeholder={`${getInvoicePrefix(newRecord.item)}${newRecord.year}001`}
                             value={newRecord.invoiceNo}
-                            disabled={!isAdmin}
                             onChange={(e) => setNewRecord({ ...newRecord, invoiceNo: e.target.value.toUpperCase() })}
                           />
                         </div>
