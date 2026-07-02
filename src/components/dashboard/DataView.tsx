@@ -1357,20 +1357,12 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                           >
                             <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              {(() => {
-                                const now = new Date();
-                                const start = new Date(now.getFullYear(), 0, 1);
-                                const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-                                const weekNumber = Math.ceil((days + start.getDay() + 1) / 7);
-                                const currentWeek = Math.min(weekNumber, 52);
-                                
-                                return Array.from({ length: currentWeek }, (_, i) => {
-                                  const week = i + 1;
-                                  return (
-                                    <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
-                                  );
-                                });
-                              })()}
+                              {Array.from({ length: 52 }, (_, i) => {
+                                const week = i + 1;
+                                return (
+                                  <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
