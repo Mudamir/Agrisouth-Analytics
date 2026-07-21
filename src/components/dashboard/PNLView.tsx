@@ -237,8 +237,8 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
       }
       
       // Banana pack sorting - Order: 13.5 KG A (first) -> 13.5 KG A SH -> 13.5 KG B SH -> 13.5 KG B -> 7.2 KG -> 6 KG -> 3 KG -> 18 KG (last)
-      // 1. 13.5 KG A (first)
-      if (packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
+      // 1. 13.5 KG A (4/5/6) — also matches legacy "13.5 KG A"
+      if (packUpper === '13.5 KG A (4/5/6)' || packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
           (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH')) ||
           (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
         return 1;
@@ -254,8 +254,8 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
           (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H')) && packUpper.includes('B'))) {
         return 2.5;
       }
-      // 3. 13.5 KG B (plain B, not SH)
-      if (packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
+      // 3. 13.5 KG B (4/5/6) — also matches legacy "13.5 KG B"
+      if (packUpper === '13.5 KG B (4/5/6)' || packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
           (packUpper.includes('13.5') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H')) ||
           (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H'))) {
         return 3;

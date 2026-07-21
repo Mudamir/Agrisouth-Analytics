@@ -61,14 +61,14 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
     }
     
     // Banana pack sorting - Order: 13.5 KG A, 13.5 KG B, 13.5 KG A SH, 13.5 KG B SH, 3KG, 7KG, 18KG
-    // 1. 13.5 KG A (exact match or contains 13.5 and A, but not B or SH)
-    if (packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
+    // 1. 13.5 KG A (4/5/6) — also matches legacy "13.5 KG A"
+    if (packUpper === '13.5 KG A (4/5/6)' || packUpper === '13.5 KG A' || packUpper === '13 KG A' || 
         (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH')) ||
         (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
       return 1;
     }
-    // 2. 13.5 KG B (plain B, not SH)
-    if (packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
+    // 2. 13.5 KG B (4/5/6) — also matches legacy "13.5 KG B"
+    if (packUpper === '13.5 KG B (4/5/6)' || packUpper === '13.5 KG B' || packUpper === '13KG B' || packUpper === '13 KG B' ||
         (packUpper.includes('13.5') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H')) ||
         (packUpper.includes('13') && packUpper.includes('KG') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H'))) {
       return 2;

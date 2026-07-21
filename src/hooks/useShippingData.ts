@@ -214,7 +214,7 @@ export function useShippingData() {
 
   // Custom sort order for pack stats (left to right)
   // For Pineapples: 7C, 8C, 9C, 10C, 11C, 12C (sorted numerically)
-  // For Bananas: 13.5 KG A, 13.5 KG B, 13.5 KG A SH (7/8/9), 13.5 KG B SH (7/8/9), 7KG, 3KG, 18KG
+  // For Bananas: 13.5 KG A (4/5/6), 13.5 KG B (4/5/6), 13.5 KG A SH (7/8/9), 13.5 KG B SH (7/8/9), 7KG, 3KG, 18KG
   const getPackSortOrder = (pack: string): number => {
     const packUpper = pack.toUpperCase().trim();
     
@@ -228,12 +228,12 @@ export function useShippingData() {
     }
     
     // Banana pack sorting (existing logic)
-    // 1. 13.5 KG A (exact match or contains 13.5 and A, but not B or SH)
-    if (packUpper === '13.5 KG A' || (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
+    // 1. 13.5 KG A (4/5/6) — also matches legacy "13.5 KG A"
+    if (packUpper === '13.5 KG A (4/5/6)' || packUpper === '13.5 KG A' || (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
       return 1;
     }
-    // 2. 13.5 KG B (plain B, not SH)
-    if (packUpper === '13.5 KG B' || (packUpper.includes('13.5') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H'))) {
+    // 2. 13.5 KG B (4/5/6) — also matches legacy "13.5 KG B"
+    if (packUpper === '13.5 KG B (4/5/6)' || packUpper === '13.5 KG B' || (packUpper.includes('13.5') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H'))) {
       return 2;
     }
     // 3. 13.5 KG A SH (7/8/9) — also matches legacy "13.5 KG SH"
