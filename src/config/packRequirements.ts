@@ -13,7 +13,8 @@ export const PACK_REQUIREMENTS: Record<FruitType, Record<string, number>> = {
     // Example requirements per pack (adjust as needed)
     // '13.5 KG A': 1000,
     // '13.5 KG B': 50,
-    // '13.5 KG SH': 40,
+    // '13.5 KG A SH (7/8/9)': 40,
+    // '13.5 KG B SH (7/8/9)': 40,
     // '7KG': 200,
     // '3KG': 300,
     // '18KG': 30,

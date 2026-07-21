@@ -185,7 +185,7 @@ export function useShippingData() {
   const getCartonToContainerDivisor = (pack: string): number | null => {
     const packUpper = pack.toUpperCase().trim();
     
-    // 13kg packs (13.5 KG A, 13.5 KG B, 13.5 KG SH): cartons / 1540
+    // 13kg packs (13.5 KG A, 13.5 KG B, 13.5 KG A/B SH): cartons / 1540
     if (packUpper.includes('13.5') || (packUpper.includes('13') && packUpper.includes('KG') && !packUpper.includes('3KG'))) {
       return 1540;
     }
@@ -214,7 +214,7 @@ export function useShippingData() {
 
   // Custom sort order for pack stats (left to right)
   // For Pineapples: 7C, 8C, 9C, 10C, 11C, 12C (sorted numerically)
-  // For Bananas: 13.5 KG A, 13.5 KG B, 13.5 KG SH, 7KG (or 7.2 KG A), 3KG (or 3 KG A), 18KG (or 18 KG A)
+  // For Bananas: 13.5 KG A, 13.5 KG B, 13.5 KG A SH (7/8/9), 13.5 KG B SH (7/8/9), 7KG, 3KG, 18KG
   const getPackSortOrder = (pack: string): number => {
     const packUpper = pack.toUpperCase().trim();
     
@@ -232,13 +232,20 @@ export function useShippingData() {
     if (packUpper === '13.5 KG A' || (packUpper.includes('13.5') && packUpper.includes('A') && !packUpper.includes('B') && !packUpper.includes('SH'))) {
       return 1;
     }
-    // 2. 13.5 KG B
-    if (packUpper === '13.5 KG B' || (packUpper.includes('13.5') && packUpper.includes('B'))) {
+    // 2. 13.5 KG B (plain B, not SH)
+    if (packUpper === '13.5 KG B' || (packUpper.includes('13.5') && packUpper.includes('B') && !packUpper.includes('SH') && !packUpper.includes('S/H'))) {
       return 2;
     }
-    // 3. 13.5 KG SH
-    if (packUpper === '13.5 KG SH' || (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H')))) {
+    // 3. 13.5 KG A SH (7/8/9) — also matches legacy "13.5 KG SH"
+    if (packUpper === '13.5 KG A SH (7/8/9)' || packUpper === '13.5 KG SH' ||
+        (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H')) && packUpper.includes('A') && !packUpper.includes('B')) ||
+        (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H')) && !packUpper.includes('A') && !packUpper.includes('B'))) {
       return 3;
+    }
+    // 4. 13.5 KG B SH (7/8/9)
+    if (packUpper === '13.5 KG B SH (7/8/9)' ||
+        (packUpper.includes('13.5') && (packUpper.includes('SH') || packUpper.includes('S/H')) && packUpper.includes('B'))) {
+      return 3.5;
     }
     // 4. 7KG or 7.2 KG A (matches "7KG" exactly or starts with "7" and has KG, but not part of 13.5, 17, 27)
     if (packUpper === '7KG' || packUpper === '7.2 KG A' || 
