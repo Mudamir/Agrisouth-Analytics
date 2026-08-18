@@ -30,22 +30,35 @@ interface SidebarProps {
   totalCartons: number;
 }
 
+function persistCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem('agsouth-sidebar-collapsed', String(collapsed));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function NavItem({
   active,
   collapsed,
   icon: Icon,
   label,
   onClick,
+  onCollapse,
 }: {
   active: boolean;
   collapsed: boolean;
   icon: ElementType;
   label: string;
   onClick: () => void;
+  onCollapse: () => void;
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        onClick();
+        onCollapse();
+      }}
       title={collapsed ? label : undefined}
       className={cn(
         'relative w-full flex items-center rounded-lg transition-colors duration-200',
@@ -84,6 +97,11 @@ export function Sidebar({
   const { logout, canAccessPage, canAccessUserManagement, canAccessPNL, canAccessConfiguration } = useAuth();
   const canAccessDataLogs = canAccessPage('data-logs');
 
+  const collapseNav = () => {
+    setIsCollapsed(true);
+    persistCollapsed(true);
+  };
+
   return (
     <aside className={cn(
       "bg-[#123A63] flex flex-col h-screen shrink-0 border-r border-white/5 transition-all duration-300 relative",
@@ -93,11 +111,7 @@ export function Sidebar({
         onClick={() => {
           setIsCollapsed((current) => {
             const next = !current;
-            try {
-              localStorage.setItem('agsouth-sidebar-collapsed', String(next));
-            } catch {
-              // ignore storage errors
-            }
+            persistCollapsed(next);
             return next;
           });
         }}
@@ -146,6 +160,7 @@ export function Sidebar({
               collapsed={isCollapsed}
               icon={Banana}
               label="Bananas"
+              onCollapse={collapseNav}
               onClick={() => {
                 onSelectFruit('BANANAS');
                 onNavigate('dashboard');
@@ -156,6 +171,7 @@ export function Sidebar({
               collapsed={isCollapsed}
               icon={PineappleIcon}
               label="Pineapples"
+              onCollapse={collapseNav}
               onClick={() => {
                 onSelectFruit('PINEAPPLES');
                 onNavigate('dashboard');
@@ -176,6 +192,7 @@ export function Sidebar({
               collapsed={isCollapsed}
               icon={LineChart}
               label="Analysis"
+              onCollapse={collapseNav}
               onClick={() => onNavigate('analysis')}
             />
             {canAccessPage('data') && (
@@ -184,6 +201,7 @@ export function Sidebar({
                 collapsed={isCollapsed}
                 icon={Table2}
                 label="Data"
+                onCollapse={collapseNav}
                 onClick={() => onNavigate('data')}
               />
             )}
@@ -193,6 +211,7 @@ export function Sidebar({
                 collapsed={isCollapsed}
                 icon={TrendingUp}
                 label="PNL"
+                onCollapse={collapseNav}
                 onClick={() => onNavigate('pnl')}
               />
             )}
@@ -213,6 +232,7 @@ export function Sidebar({
                   collapsed={isCollapsed}
                   icon={Users}
                   label="User Management"
+                  onCollapse={collapseNav}
                   onClick={() => onNavigate('users')}
                 />
               )}
@@ -222,6 +242,7 @@ export function Sidebar({
                   collapsed={isCollapsed}
                   icon={History}
                   label="Data Logs"
+                  onCollapse={collapseNav}
                   onClick={() => onNavigate('data-logs')}
                 />
               )}
@@ -231,6 +252,7 @@ export function Sidebar({
                   collapsed={isCollapsed}
                   icon={Settings}
                   label="Configuration"
+                  onCollapse={collapseNav}
                   onClick={() => onNavigate('configuration')}
                 />
               )}

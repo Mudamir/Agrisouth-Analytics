@@ -16,7 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Settings, Lock, Check, Minus } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -306,7 +305,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-heading font-semibold text-lg text-foreground mb-1">
-                Containers by Pack: Delivered vs Requirement
+                {isAdmin ? 'Containers by Pack: Delivered vs Requirement' : 'Containers by Pack (Delivered)'}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {fruit}
@@ -525,91 +524,114 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
               <p className="text-sm">No data available for the selected filters</p>
             </div>
           ) : (
-            <div className="space-y-5">
-              {(() => {
-                const onTarget = packContainers.filter((row) => row.required > 0 && row.achieved >= row.required).length;
-                const tracked = packContainers.filter((row) => row.required > 0).length;
-                return (
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
-                      {packContainers.length} packs
-                    </span>
-                    <span className="rounded-full bg-[#123A63]/10 px-2.5 py-1 font-medium text-[#123A63]">
-                      {onTarget} on target
-                    </span>
-                    {tracked - onTarget > 0 && (
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-500">
-                        {tracked - onTarget} below requirement
-                      </span>
-                    )}
-                    <span className="ml-auto text-[11px] text-muted-foreground">
-                      Bar fill = delivered · track end = 100% of requirement
-                    </span>
-                  </div>
-                );
-              })()}
-
-              <div className="hidden sm:grid grid-cols-[minmax(160px,1.15fr)_minmax(0,1.6fr)_auto] gap-4 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                <span>Pack</span>
-                <span>Progress to requirement</span>
-                <span className="text-right">Delivered / Required</span>
-              </div>
-
-              <div className="divide-y divide-border/70">
-                {packContainers.map((row) => {
-                  const pct = row.required > 0 ? (row.achieved / row.required) * 100 : 0;
-                  const barWidth = row.required > 0 ? Math.min(pct, 100) : 0;
-                  const met = row.required > 0 && row.achieved >= row.required;
-
+            isAdmin ? (
+              <div className="space-y-5">
+                {(() => {
+                  const onTarget = packContainers.filter((row) => row.required > 0 && row.achieved >= row.required).length;
+                  const tracked = packContainers.filter((row) => row.required > 0).length;
                   return (
-                    <div
-                      key={row.pack}
-                      className="grid grid-cols-1 sm:grid-cols-[minmax(160px,1.15fr)_minmax(0,1.6fr)_auto] gap-3 sm:gap-4 items-center py-3.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{row.pack}</p>
-                        <p className="text-[11px] text-muted-foreground sm:hidden mt-0.5">
-                          {row.achieved.toLocaleString(undefined, { maximumFractionDigits: 1 })} / {row.required.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                        </p>
-                      </div>
-
-                      <div className="relative h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className={cn(
-                            'absolute inset-y-0 left-0 rounded-full transition-all duration-500',
-                            met ? 'bg-sky-600' : 'bg-[#123A63]'
-                          )}
-                          style={{ width: `${barWidth}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-end gap-3 tabular-nums">
-                        <div className="hidden sm:block text-right">
-                          <p className="text-sm font-semibold text-foreground">
-                            {row.achieved.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                            <span className="font-medium text-muted-foreground">
-                              {' / '}
-                              {row.required.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                            </span>
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            'inline-flex min-w-[4.25rem] items-center justify-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold',
-                            met
-                              ? 'bg-sky-50 text-sky-800'
-                              : 'bg-slate-100 text-slate-600'
-                          )}
-                        >
-                          {met ? <Check className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-                          {row.required > 0 ? `${pct.toFixed(0)}%` : '—'}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
+                        {packContainers.length} packs
+                      </span>
+                      <span className="rounded-full bg-[#123A63]/10 px-2.5 py-1 font-medium text-[#123A63]">
+                        {onTarget} on target
+                      </span>
+                      {tracked - onTarget > 0 && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-500">
+                          {tracked - onTarget} below requirement
                         </span>
-                      </div>
+                      )}
+                      <span className="ml-auto text-[11px] text-muted-foreground">
+                        Bar fill = delivered · track end = 100% of requirement
+                      </span>
                     </div>
                   );
-                })}
+                })()}
+
+                <div className="hidden sm:grid grid-cols-[minmax(160px,1.15fr)_minmax(0,1.6fr)_auto] gap-4 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  <span>Pack</span>
+                  <span>Progress to requirement</span>
+                  <span className="text-right">Delivered / Required</span>
+                </div>
+
+                <div className="divide-y divide-border/70">
+                  {packContainers.map((row) => {
+                    const pct = row.required > 0 ? (row.achieved / row.required) * 100 : 0;
+                    const barWidth = row.required > 0 ? Math.min(pct, 100) : 0;
+                    const met = row.required > 0 && row.achieved >= row.required;
+
+                    return (
+                      <div
+                        key={row.pack}
+                        className="grid grid-cols-1 sm:grid-cols-[minmax(160px,1.15fr)_minmax(0,1.6fr)_auto] gap-3 sm:gap-4 items-center py-3.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{row.pack}</p>
+                          <p className="text-[11px] text-muted-foreground sm:hidden mt-0.5">
+                            {row.achieved.toLocaleString(undefined, { maximumFractionDigits: 1 })} / {row.required.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          </p>
+                        </div>
+
+                        <div className="relative h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className={cn(
+                              'absolute inset-y-0 left-0 rounded-full transition-all duration-500',
+                              met ? 'bg-sky-600' : 'bg-[#123A63]'
+                            )}
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 tabular-nums">
+                          <div className="hidden sm:block text-right">
+                            <p className="text-sm font-semibold text-foreground">
+                              {row.achieved.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                              <span className="font-medium text-muted-foreground">
+                                {' / '}
+                                {row.required.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                              </span>
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              'inline-flex min-w-[4.25rem] items-center justify-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold',
+                              met
+                                ? 'bg-sky-50 text-sky-800'
+                                : 'bg-slate-100 text-slate-600'
+                            )}
+                          >
+                            {met ? <Check className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                            {row.required > 0 ? `${pct.toFixed(0)}%` : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Requirement progress is visible to administrators.
+                </p>
+                <div className="divide-y divide-border/70">
+                  {packContainers.map((row) => (
+                    <div
+                      key={row.pack}
+                      className="flex items-center justify-between gap-4 py-3"
+                    >
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {row.pack}
+                      </p>
+                      <p className="text-sm font-semibold text-sky-300 tabular-nums">
+                        {row.achieved.toFixed(2)} containers
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
           )}
         </div>
       </section>
