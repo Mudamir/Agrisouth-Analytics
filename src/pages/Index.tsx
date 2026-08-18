@@ -53,7 +53,7 @@ const Index = () => {
   usePrices();
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Left Sidebar */}
       <Sidebar
         selectedFruit={selectedFruit}
@@ -103,19 +103,19 @@ const Index = () => {
       )}
 
       {currentPage === 'users' && canAccessPage('users') && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto">
           <UserManagement />
         </div>
       )}
 
       {currentPage === 'data-logs' && canAccessPage('data-logs') && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto">
           <DataLogs />
         </div>
       )}
 
       {currentPage === 'configuration' && canAccessPage('configuration') && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto">
           <ConfigurationManagement />
         </div>
       )}

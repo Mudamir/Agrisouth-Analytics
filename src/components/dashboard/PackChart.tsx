@@ -49,7 +49,7 @@ export function PackChart({ data }: PackChartProps) {
           />
           <Bar 
             dataKey="Cartons" 
-            fill="hsl(var(--accent))" 
+            fill="#0369A1" 
             radius={[4, 4, 0, 0]}
             name="Cartons (K)"
           />

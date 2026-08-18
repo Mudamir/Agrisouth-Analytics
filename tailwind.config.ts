@@ -62,6 +62,7 @@ export default {
         },
         navy: "hsl(var(--navy))",
         gold: "hsl(var(--gold))",
+        highlight: "hsl(var(--highlight))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

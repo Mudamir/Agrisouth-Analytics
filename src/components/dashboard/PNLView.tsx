@@ -334,7 +334,7 @@ export function PNLView({ data, selectedFruit, onSelectFruit }: PNLViewProps) {
   };
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto">
+    <div className="flex-1 min-h-0 p-6 overflow-y-auto">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">

@@ -226,7 +226,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
   // Color palette for charts
   const COLORS = [
     'hsl(var(--primary))',
-    'hsl(var(--accent))',
+    '#0369A1',
     'hsl(var(--muted-foreground))',
     '#8b5cf6',
     '#ec4899',
@@ -238,7 +238,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
   ];
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto">
+    <div className="flex-1 min-h-0 p-6 overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="space-y-3">
@@ -257,7 +257,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
             className={cn(
               'flex items-center gap-2',
               selectedFruit === 'BANANAS' 
-                ? 'bg-accent text-accent-foreground hover:bg-accent/90' 
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
                 : 'hover:bg-muted'
             )}
           >
@@ -271,7 +271,7 @@ export function AnalysisView({ data, selectedFruit, onSelectFruit }: AnalysisVie
             className={cn(
               'flex items-center gap-2',
               selectedFruit === 'PINEAPPLES' 
-                ? 'bg-accent text-accent-foreground hover:bg-accent/90' 
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
                 : 'hover:bg-muted'
             )}
           >

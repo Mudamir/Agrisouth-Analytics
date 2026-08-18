@@ -869,10 +869,10 @@ export function PriceManagement({
                 {/* Purchase Prices Section - Premium Design */}
                 <div className="bg-gradient-to-br from-card to-card/95 border border-border/60 rounded-xl shadow-lg overflow-hidden">
                   {/* Enhanced Header */}
-                  <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-b border-border/50">
+                  <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-highlight/10 via-highlight/5 to-transparent border-b border-border/50">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-accent/20 border border-accent/30 flex items-center justify-center">
-                        <ShoppingCart className="w-4 h-4 text-accent" />
+                      <div className="w-8 h-8 rounded-lg bg-highlight/20 border border-highlight/30 flex items-center justify-center">
+                        <ShoppingCart className="w-4 h-4 text-highlight" />
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide flex items-center gap-2">
@@ -886,9 +886,9 @@ export function PriceManagement({
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/5 border border-accent/20 rounded-lg">
-                      <TrendingUp className="w-3.5 h-3.5 text-accent" />
-                      <span className="text-[10px] font-semibold text-accent uppercase tracking-wide">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-highlight/5 border border-highlight/20 rounded-lg">
+                      <TrendingUp className="w-3.5 h-3.5 text-highlight" />
+                      <span className="text-[10px] font-semibold text-highlight uppercase tracking-wide">
                         Cost
                       </span>
                     </div>
@@ -900,7 +900,7 @@ export function PriceManagement({
                         <TableRow className="bg-muted/40 border-b-2 border-border h-10">
                           <TableHead className="w-36 text-xs font-bold py-3 px-4 bg-gradient-to-r from-muted/80 to-muted/40 sticky left-0 z-20 border-r-2 border-border/60 shadow-sm">
                             <div className="flex items-center gap-2">
-                              <Package className="w-3.5 h-3.5 text-accent" />
+                              <Package className="w-3.5 h-3.5 text-highlight" />
                               <span>Pack</span>
                             </div>
                           </TableHead>
@@ -931,21 +931,21 @@ export function PriceManagement({
                         ) : (
                           packs.map((pack, packIndex) => (
                             <TableRow key={pack} className={cn(
-                              "hover:bg-accent/3 border-b border-border/40 transition-all duration-200",
+                              "hover:bg-highlight/3 border-b border-border/40 transition-all duration-200",
                               packIndex % 2 === 0 ? "bg-card" : "bg-muted/10"
                             )}>
                               <TableCell 
                                 onClick={isAdmin ? () => setEditingBulkPurchasePrice({ pack, price: 0 }) : undefined}
                                 className={cn(
                                   "font-bold text-xs py-3 px-4 bg-gradient-to-r from-muted/50 to-muted/20 border-r-2 border-border/60 sticky left-0 z-10 transition-all duration-200",
-                                  isAdmin ? "cursor-pointer hover:bg-accent/15 hover:shadow-sm group" : "cursor-not-allowed opacity-60"
+                                  isAdmin ? "cursor-pointer hover:bg-highlight/15 hover:shadow-sm group" : "cursor-not-allowed opacity-60"
                                 )}
                                 title={isAdmin ? `Click to set same price for all suppliers: ${pack}` : 'Only administrators can edit prices'}
                               >
                                 <div className="flex items-center gap-2">
                                   <span>{pack}</span>
                                   {isAdmin && (
-                                    <Sparkles className="w-3 h-3 text-accent/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <Sparkles className="w-3 h-3 text-highlight/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   )}
                                 </div>
                               </TableCell>
@@ -967,13 +967,13 @@ export function PriceManagement({
                                       }) : undefined}
                                       className={cn(
                                         "text-right text-xs py-3 px-4 transition-all duration-200 whitespace-nowrap",
-                                        isAdmin ? "cursor-pointer hover:bg-accent/10 hover:shadow-sm" : "cursor-not-allowed opacity-60",
+                                        isAdmin ? "cursor-pointer hover:bg-highlight/10 hover:shadow-sm" : "cursor-not-allowed opacity-60",
                                         hasPrice && "font-semibold"
                                       )}
                                       title={isAdmin ? `Click to edit: ${pack} - ${supplier}` : 'Only administrators can edit prices'}
                                     >
                                       {hasPrice ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-accent/10 text-accent font-bold">
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-highlight/10 text-highlight font-bold">
                                           ${price.price.toFixed(2)}
                                         </span>
                                       ) : (
@@ -1093,10 +1093,10 @@ export function PriceManagement({
       {editingPurchasePrice && (
         <Dialog open={!!editingPurchasePrice} onOpenChange={() => setEditingPurchasePrice(null)}>
           <DialogContent className="max-w-md p-0 gap-0">
-            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-accent/5 via-accent/3 to-transparent border-b border-border/50">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-highlight/5 via-highlight/3 to-transparent border-b border-border/50">
               <DialogTitle className="flex items-center gap-3 text-xl font-heading font-bold">
-                <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-accent" />
+                <div className="w-10 h-10 rounded-xl bg-highlight/20 border border-highlight/30 flex items-center justify-center">
+                  <ShoppingCart className="w-5 h-5 text-highlight" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -1136,7 +1136,7 @@ export function PriceManagement({
               
               <div className="space-y-3">
                 <Label htmlFor="purchase-price" className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4 text-accent" />
+                  <ShoppingCart className="w-4 h-4 text-highlight" />
                   Purchase Price (USD per carton)
                 </Label>
                 <div className="relative">
@@ -1150,7 +1150,7 @@ export function PriceManagement({
                       ...editingPurchasePrice,
                       price: parseFloat(e.target.value) || 0
                     })}
-                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-accent"
+                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-highlight"
                     placeholder="0.00"
                     disabled={!isAdmin}
                   />
@@ -1164,7 +1164,7 @@ export function PriceManagement({
                 <Button variant="outline" onClick={() => setEditingPurchasePrice(null)} size="sm">
                   Cancel
                 </Button>
-                <Button onClick={handleSavePurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="bg-accent hover:bg-accent/90">
+                <Button onClick={handleSavePurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="bg-highlight hover:bg-highlight/90">
                   {isSaving ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1282,10 +1282,10 @@ export function PriceManagement({
       {editingBulkPurchasePrice && (
         <Dialog open={!!editingBulkPurchasePrice} onOpenChange={() => setEditingBulkPurchasePrice(null)}>
           <DialogContent className="max-w-md p-0 gap-0">
-            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-accent/5 via-accent/3 to-transparent border-b border-border/50">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-br from-highlight/5 via-highlight/3 to-transparent border-b border-border/50">
               <DialogTitle className="flex items-center gap-3 text-xl font-heading font-bold">
-                <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-accent" />
+                <div className="w-10 h-10 rounded-xl bg-highlight/20 border border-highlight/30 flex items-center justify-center">
+                  <ShoppingCart className="w-5 h-5 text-highlight" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -1302,7 +1302,7 @@ export function PriceManagement({
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-5 px-6 py-5">
-              <div className="bg-gradient-to-br from-accent/10 to-accent/5 p-4 rounded-xl border-2 border-accent/20">
+              <div className="bg-gradient-to-br from-highlight/10 to-highlight/5 p-4 rounded-xl border-2 border-highlight/20">
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Fruit</p>
@@ -1318,11 +1318,11 @@ export function PriceManagement({
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Suppliers</p>
-                    <p className="text-sm font-bold text-accent">{suppliers.length}</p>
+                    <p className="text-sm font-bold text-highlight">{suppliers.length}</p>
                   </div>
                 </div>
-                <div className="pt-3 border-t border-accent/20">
-                  <p className="text-xs font-medium text-accent/90 flex items-center gap-2">
+                <div className="pt-3 border-t border-highlight/20">
+                  <p className="text-xs font-medium text-highlight/90 flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5" />
                     This price will be applied to ALL {suppliers.length} suppliers for pack {editingBulkPurchasePrice.pack}
                   </p>
@@ -1331,7 +1331,7 @@ export function PriceManagement({
               
               <div className="space-y-3">
                 <Label htmlFor="bulk-purchase-price" className="text-sm font-bold uppercase tracking-wide text-foreground flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4 text-accent" />
+                  <ShoppingCart className="w-4 h-4 text-highlight" />
                   Purchase Price (USD per carton)
                 </Label>
                 <div className="relative">
@@ -1345,7 +1345,7 @@ export function PriceManagement({
                       ...editingBulkPurchasePrice,
                       price: parseFloat(e.target.value) || 0
                     })}
-                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-accent"
+                    className="pl-10 h-12 text-lg font-bold border-2 focus:border-highlight"
                     placeholder="0.00"
                     autoFocus
                     disabled={!isAdmin}
@@ -1357,7 +1357,7 @@ export function PriceManagement({
                 <Button variant="outline" onClick={() => setEditingBulkPurchasePrice(null)} size="sm">
                   Cancel
                 </Button>
-                <Button onClick={handleSaveBulkPurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="bg-accent hover:bg-accent/90">
+                <Button onClick={handleSaveBulkPurchasePrice} disabled={isSaving || !isAdmin} size="sm" className="bg-highlight hover:bg-highlight/90">
                   {isSaving ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -32,7 +32,7 @@ export function FilterPanel({
   const hasActiveFilters = filters.weeks.length > 0 || filters.suppliers.length > 0 || filters.sLines.length > 0 || filters.pols.length > 0 || filters.destinations.length > 0;
 
   return (
-    <aside className="w-52 bg-background border-l border-border p-3 space-y-4 overflow-y-auto">
+    <aside className="w-52 h-screen shrink-0 bg-background border-l border-border p-3 space-y-4 overflow-y-auto">
       {hasActiveFilters && (
         <button
           onClick={onClearFilters}

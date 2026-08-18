@@ -1,7 +1,8 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { FruitType, PackStats, ShippingRecord, FilterState } from '@/types/shipping';
 import { StatCard } from './StatCard';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { Settings, Lock, Check, Minus } from 'lucide-react';
 import { usePackRequirements } from '@/hooks/usePackRequirements';
 import { usePacks } from '@/hooks/usePacks';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Settings, Lock } from 'lucide-react';
+import { Settings, Lock, Check, Minus } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -189,31 +190,32 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
     }).sort((a, b) => b.achieved - a.achieved); // Sort by achieved containers (descending)
   }, [packStats, getRequirement, displayYear, numberOfWeeks]); // Added numberOfWeeks to dependencies
   return (
-    <div className="flex-1 p-6 overflow-y-auto">
-      {/* Header - Unified Component */}
-      <div className="flex items-center justify-center gap-8 mb-6">
-        {/* Logo - Larger Circular */}
-        <div className="w-32 h-32 rounded-full bg-white shadow-xl border-2 border-border/20 flex items-center justify-center overflow-hidden ring-4 ring-primary/5 hover:ring-primary/10 transition-all duration-300 hover:scale-105 flex-shrink-0">
+    <div className="flex-1 min-h-0 p-6 lg:p-8 overflow-y-auto">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="w-14 h-14 rounded-2xl bg-white border border-border shadow-sm overflow-hidden flex-shrink-0">
           <img 
             src={logoImage} 
             alt="Agrisouth Logo" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain p-1"
           />
         </div>
-        
-        {/* Text Content - Centered */}
-        <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-2xl font-bold font-heading text-foreground leading-tight">
-            AGSouth Fruits Pacific Branch Office
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Agrisouth (Jersey) Ltd.
+          </p>
+          <h1 className="text-xl font-bold font-heading text-foreground leading-tight">
+            Pacific Branch Office
           </h1>
-          <p className="page-title text-3xl font-extrabold text-orange-500">{fruit}</p>
+          <p className="text-sm font-semibold text-primary mt-0.5">
+            {fruit === 'BANANAS' ? 'Sharbatly Bananas' : 'Pineapples'}
+          </p>
         </div>
       </div>
 
       {/* Container Stats */}
       <section className="mb-6">
-        <h2 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
-          Number of Containers - {fruit === 'BANANAS' ? 'Sharbatly Bananas' : 'Pineapples'}
+        <h2 className="text-sm font-semibold text-muted-foreground mb-3">
+          Number of Containers — {fruit === 'BANANAS' ? 'Sharbatly Bananas' : 'Pineapples'}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {packStats.map((stat, index) => (
@@ -222,14 +224,12 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
               label={stat.pack}
               value={stat.containers}
               decimalPlaces={2}
-              className={is18KG(stat.pack) 
-                ? "animate-fade-in text-white shadow-lg" 
-                : "animate-fade-in"}
+              className="animate-fade-in"
               style={is18KG(stat.pack) 
                 ? { 
                     animationDelay: `${index * 50}ms`,
-                    '--stat-card-bg': 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
-                    background: 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
+                    '--stat-card-bg': 'linear-gradient(to bottom, hsl(199, 89%, 48%), hsl(210, 69%, 28%))',
+                    background: 'linear-gradient(to bottom, hsl(199, 89%, 48%), hsl(210, 69%, 28%))',
                     backgroundImage: 'none',
                   } as React.CSSProperties
                 : { animationDelay: `${index * 50}ms` } as React.CSSProperties}
@@ -240,8 +240,8 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
 
       {/* Carton Stats */}
       <section className="mb-6">
-        <h2 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
-          Number of Cartons - {fruit === 'BANANAS' ? 'Sharbatly Bananas' : 'Pineapples'}
+        <h2 className="text-sm font-semibold text-muted-foreground mb-3">
+          Number of Cartons — {fruit === 'BANANAS' ? 'Sharbatly Bananas' : 'Pineapples'}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {packStats.map((stat, index) => (
@@ -249,14 +249,12 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
               key={`cartons-${stat.pack}`}
               label={stat.pack}
               value={stat.cartons}
-              className={is18KG(stat.pack) 
-                ? "animate-fade-in text-white shadow-lg" 
-                : "animate-fade-in"}
+              className="animate-fade-in"
               style={is18KG(stat.pack) 
                 ? { 
                     animationDelay: `${index * 50}ms`,
-                    '--stat-card-bg': 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
-                    background: 'linear-gradient(to bottom, hsl(18, 85%, 55%), hsl(18, 70%, 45%))',
+                    '--stat-card-bg': 'linear-gradient(to bottom, hsl(199, 89%, 48%), hsl(210, 69%, 28%))',
+                    background: 'linear-gradient(to bottom, hsl(199, 89%, 48%), hsl(210, 69%, 28%))',
                     backgroundImage: 'none',
                   } as React.CSSProperties
                 : { animationDelay: `${index * 50}ms` } as React.CSSProperties}
@@ -280,14 +278,14 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
       {/* Supplier Stats - Moved Below Pack Breakdowns */}
       {supplierStats.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-sm font-semibold text-muted-foreground mb-3 text-center">
+          <h2 className="text-sm font-semibold text-muted-foreground mb-3">
             By Supplier
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {supplierStats.slice(0, 8).map((stat, index) => (
               <div 
                 key={stat.supplier} 
-                className="bg-card border border-border rounded-lg p-3 animate-fade-in"
+                className="bg-card border border-border rounded-xl p-3 animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` } as React.CSSProperties}
               >
                 <p className="text-xs font-medium text-muted-foreground truncate">{stat.supplier}</p>
@@ -303,7 +301,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
 
       {/* Pack Containers vs Requirements - Elegant Design */}
       <section className="mb-6">
-        <div className="bg-card rounded-lg p-4 shadow-sm border border-border animate-fade-in">
+        <div className="bg-card rounded-xl p-4 shadow-sm border border-border animate-fade-in">
           {/* Elegant Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -523,247 +521,94 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
           </div>
 
           {packContainers.length === 0 ? (
-            <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+            <div className="flex items-center justify-center h-40 text-muted-foreground">
               <p className="text-sm">No data available for the selected filters</p>
             </div>
           ) : (
-            <div>
-              {/* Elegant Chart Design */}
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart 
-                  data={packContainers} 
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                  barCategoryGap="20%"
-                >
-                  <CartesianGrid 
-                    strokeDasharray="3 3" 
-                    stroke="hsl(var(--border))" 
-                    opacity={0.2}
-                    vertical={false}
-                  />
-                  <XAxis 
-                    dataKey="pack" 
-                    tick={{ 
-                      fontSize: 13, 
-                      fill: 'hsl(var(--foreground))',
-                      fontWeight: 500,
-                      fontFamily: 'Montserrat, sans-serif'
-                    }}
-                    angle={0}
-                    textAnchor="middle"
-                    height={50}
-                    interval={0}
-                  />
-                  <YAxis 
-                    tick={{ 
-                      fontSize: 13, 
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontWeight: 500,
-                      fontFamily: 'Montserrat, sans-serif'
-                    }}
-                    width={60}
-                    tickFormatter={(value) => value.toFixed(0)}
-                    label={{ 
-                      value: 'Containers', 
-                      angle: -90, 
-                      position: 'insideLeft',
-                      style: { 
-                        textAnchor: 'middle', 
-                        fill: 'hsl(var(--foreground))',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        fontFamily: 'Montserrat, sans-serif'
-                      } 
-                    }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
-                      padding: '12px',
-                    }}
-                    cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }}
-                    formatter={(value: number, name: string, props: any) => {
-                      // Always show both Delivered and Requirement values
-                      const delivered = props.payload?.achieved || 0;
-                      const required = props.payload?.required || 0;
-                      const deliveredFormatted = parseFloat(delivered.toFixed(2));
-                      const requiredFormatted = parseFloat(required.toFixed(2));
-                      
-                      const percentage = required > 0
-                        ? ((delivered / required) * 100).toFixed(1)
-                        : null;
-                      
-                      // Return both values
-                      if (name === 'achieved') {
-                        const displayValue = percentage 
-                          ? `${deliveredFormatted.toLocaleString()} (${percentage}%)`
-                          : `${deliveredFormatted.toLocaleString()}`;
-                        return [displayValue, 'Delivered'];
-                      } else {
-                        const displayValue = `${requiredFormatted.toLocaleString()}`;
-                        return [displayValue, 'Requirement'];
-                      }
-                    }}
-                    content={(props: any) => {
-                      if (!props.active || !props.payload || props.payload.length === 0) {
-                        return null;
-                      }
-                      
-                      const data = props.payload[0].payload;
-                      const pack = data.pack || '';
-                      const delivered = data.achieved || 0;
-                      const required = data.required || 0;
-                      const deliveredFormatted = parseFloat(delivered.toFixed(2));
-                      const requiredFormatted = parseFloat(required.toFixed(2));
-                      const percentage = required > 0
-                        ? ((delivered / required) * 100).toFixed(1)
-                        : null;
-                      
-                      const deliveredColor = fruit === 'BANANAS' 
-                        ? 'hsl(45, 90%, 50%)' 
-                        : 'hsl(18, 85%, 55%)';
-                      const requiredColor = 'hsl(190, 100%, 25%)';
-                      
-                      return (
-                        <div style={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          padding: '12px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          fontFamily: 'Montserrat, sans-serif'
-                        }}>
-                          <p style={{
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            color: 'hsl(var(--foreground))',
-                            marginBottom: '8px',
-                            fontFamily: 'Montserrat, sans-serif'
-                          }}>
-                            {pack}
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{
-                                display: 'inline-block',
-                                width: '12px',
-                                height: '12px',
-                                backgroundColor: deliveredColor,
-                                borderRadius: '2px'
-                              }}></span>
-                              <span style={{
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                color: 'hsl(var(--foreground))',
-                                fontFamily: 'Montserrat, sans-serif'
-                              }}>
-                                Delivered: {deliveredFormatted.toLocaleString()}
-                                {percentage && ` (${percentage}%)`}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{
-                                display: 'inline-block',
-                                width: '12px',
-                                height: '12px',
-                                backgroundColor: requiredColor,
-                                borderRadius: '2px',
-                                opacity: 0.75
-                              }}></span>
-                              <span style={{
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                color: 'hsl(var(--foreground))',
-                                fontFamily: 'Montserrat, sans-serif'
-                              }}>
-                                Requirement: {requiredFormatted.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }}
-                    labelStyle={{ 
-                      fontWeight: 600, 
-                      marginBottom: '8px',
-                      color: 'hsl(var(--foreground))',
-                      fontSize: '13px',
-                      fontFamily: 'Montserrat, sans-serif'
-                    }}
-                    separator=": "
-                  />
-                  <Legend 
-                    wrapperStyle={{ 
-                      paddingTop: '10px',
-                      paddingBottom: '5px'
-                    }}
-                    iconType="rect"
-                    iconSize={16}
-                    formatter={(value, entry: any) => {
-                      // Color the legend text based on fruit type
-                      const textColor = fruit === 'BANANAS' 
-                        ? 'hsl(45, 90%, 50%)' // Gold for bananas
-                        : 'hsl(18, 85%, 55%)'; // Coral for pineapples
-                      
-                      // Requirement stays teal, Delivered matches fruit
-                      const finalColor = value === 'Requirement' 
-                        ? 'hsl(190, 100%, 25%)' 
-                        : textColor;
-                      
-                      return (
-                        <span style={{ 
-                          fontSize: '13px', 
-                          fontWeight: 600,
-                          color: finalColor,
-                          fontFamily: 'Montserrat, sans-serif'
-                        }}>
-                          {value}
-                        </span>
-                      );
-                    }}
-                  />
-                  {/* Requirement Bar - Primary Teal (same as sidebar) */}
-                  <Bar 
-                    dataKey="required" 
-                    fill="hsl(190, 100%, 25%)" 
-                    name="Requirement"
-                    radius={[6, 6, 0, 0]}
-                    opacity={0.75}
-                    stroke="hsl(190, 100%, 20%)"
-                    strokeWidth={1.5}
-                  />
-                  {/* Delivered Bar - Gold for bananas (same as line chart), Accent for pineapples */}
-                  <Bar 
-                    dataKey="achieved" 
-                    name="Delivered"
-                    fill={fruit === 'BANANAS' ? 'hsl(45, 90%, 50%)' : 'hsl(18, 85%, 55%)'}
-                    radius={[6, 6, 0, 0]}
-                    strokeWidth={2.5}
-                  >
-                    {packContainers.map((entry, index) => {
-                      // Use exact same colors as line chart and sidebar
-                      const baseColor = fruit === 'BANANAS' 
-                        ? 'hsl(45, 90%, 50%)' // Same gold as line chart
-                        : 'hsl(18, 85%, 55%)'; // Same accent/coral as line chart
-                      
-                      const strokeColor = fruit === 'BANANAS' 
-                        ? 'hsl(45, 85%, 45%)' 
-                        : 'hsl(18, 75%, 50%)';
-                      
-                      return (
-                        <Cell 
-                          key={`cell-${index}`}
-                          fill={baseColor}
-                          stroke={strokeColor}
+            <div className="space-y-5">
+              {(() => {
+                const onTarget = packContainers.filter((row) => row.required > 0 && row.achieved >= row.required).length;
+                const tracked = packContainers.filter((row) => row.required > 0).length;
+                return (
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
+                      {packContainers.length} packs
+                    </span>
+                    <span className="rounded-full bg-[#123A63]/10 px-2.5 py-1 font-medium text-[#123A63]">
+                      {onTarget} on target
+                    </span>
+                    {tracked - onTarget > 0 && (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-500">
+                        {tracked - onTarget} below requirement
+                      </span>
+                    )}
+                    <span className="ml-auto text-[11px] text-muted-foreground">
+                      Bar fill = delivered · track end = 100% of requirement
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div className="hidden sm:grid grid-cols-[minmax(160px,1.15fr)_minmax(0,1.6fr)_auto] gap-4 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <span>Pack</span>
+                <span>Progress to requirement</span>
+                <span className="text-right">Delivered / Required</span>
+              </div>
+
+              <div className="divide-y divide-border/70">
+                {packContainers.map((row) => {
+                  const pct = row.required > 0 ? (row.achieved / row.required) * 100 : 0;
+                  const barWidth = row.required > 0 ? Math.min(pct, 100) : 0;
+                  const met = row.required > 0 && row.achieved >= row.required;
+
+                  return (
+                    <div
+                      key={row.pack}
+                      className="grid grid-cols-1 sm:grid-cols-[minmax(160px,1.15fr)_minmax(0,1.6fr)_auto] gap-3 sm:gap-4 items-center py-3.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{row.pack}</p>
+                        <p className="text-[11px] text-muted-foreground sm:hidden mt-0.5">
+                          {row.achieved.toLocaleString(undefined, { maximumFractionDigits: 1 })} / {row.required.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                        </p>
+                      </div>
+
+                      <div className="relative h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className={cn(
+                            'absolute inset-y-0 left-0 rounded-full transition-all duration-500',
+                            met ? 'bg-sky-600' : 'bg-[#123A63]'
+                          )}
+                          style={{ width: `${barWidth}%` }}
                         />
-                      );
-                    })}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 tabular-nums">
+                        <div className="hidden sm:block text-right">
+                          <p className="text-sm font-semibold text-foreground">
+                            {row.achieved.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                            <span className="font-medium text-muted-foreground">
+                              {' / '}
+                              {row.required.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                            </span>
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            'inline-flex min-w-[4.25rem] items-center justify-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold',
+                            met
+                              ? 'bg-sky-50 text-sky-800'
+                              : 'bg-slate-100 text-slate-600'
+                          )}
+                        >
+                          {met ? <Check className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                          {row.required > 0 ? `${pct.toFixed(0)}%` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -771,7 +616,7 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
 
       {/* Weekly Shipment Trend */}
       <section className="mb-6">
-        <div className="bg-card rounded-lg p-6 shadow-sm border border-border animate-fade-in">
+        <div className="bg-card rounded-xl p-6 shadow-sm border border-border animate-fade-in">
           <div className="mb-4">
             <h3 className="font-heading font-semibold text-foreground mb-2">Weekly Shipment Trend</h3>
             <p className="text-sm text-muted-foreground">Cartons shipped by week</p>
@@ -819,10 +664,10 @@ export function DashboardView({ fruit, packStats, totalStats, supplierStats, dat
                 <Line 
                   type="monotone" 
                   dataKey="cartons" 
-                  stroke={fruit === 'BANANAS' ? 'hsl(var(--gold))' : 'hsl(var(--accent))'} 
+                  stroke="#123A63" 
                   strokeWidth={3}
-                  dot={{ fill: fruit === 'BANANAS' ? 'hsl(var(--gold))' : 'hsl(var(--accent))', r: 4 }}
-                  activeDot={{ r: 6 }}
+                  dot={{ fill: '#123A63', stroke: '#fff', strokeWidth: 1.5, r: 4 }}
+                  activeDot={{ r: 6, fill: '#0B1D36', stroke: '#fff', strokeWidth: 2 }}
                   name={fruit}
                 />
               </LineChart>

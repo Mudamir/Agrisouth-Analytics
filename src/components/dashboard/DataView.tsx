@@ -1056,7 +1056,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
   };
 
   return (
-    <div className="flex-1 p-6 overflow-hidden flex flex-col">
+    <div className="flex-1 min-h-0 p-6 overflow-hidden flex flex-col">
       <div className="mb-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-3">
@@ -2012,7 +2012,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                   <TableCell>{record.etd}</TableCell>
                   <TableCell>{record.eta || '-'}</TableCell>
                   <TableCell>{record.pol}</TableCell>
-                  <TableCell className={record.item === 'BANANAS' ? 'text-gold font-medium' : 'text-accent font-medium'}>
+                  <TableCell className={record.item === 'BANANAS' ? 'text-gold font-medium' : 'text-primary font-medium'}>
                     {record.item}
                   </TableCell>
                   <TableCell>{record.destination}</TableCell>
@@ -2161,7 +2161,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                   "flex h-11 w-11 items-center justify-center rounded-xl shadow-sm shrink-0",
                   selectedRecord?.item === 'BANANAS' 
                     ? "bg-gradient-to-br from-gold/20 to-gold/10 text-gold border border-gold/20" 
-                    : "bg-gradient-to-br from-accent/20 to-accent/10 text-accent border border-accent/20"
+                    : "bg-gradient-to-br from-primary/20 to-primary/10 text-primary border border-primary/20"
                 )}>
                   {selectedRecord?.item === 'BANANAS' ? (
                     <Banana className="h-6 w-6" />
