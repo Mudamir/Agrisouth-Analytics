@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
-export type ConfigType = 'pol' | 'destination' | 'supplier_bananas' | 'supplier_pineapples' | 's_line';
+export type ConfigType = 'pol' | 'destination' | 'supplier_bananas' | 'supplier_pineapples' | 's_line' | 'customer';
 
 interface ConfigValue {
   id: string;
@@ -37,10 +37,10 @@ export function useConfiguration() {
 
       return (data || []) as ConfigValue[];
     },
-    staleTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 60,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const pols = useMemo(
@@ -63,6 +63,10 @@ export function useConfiguration() {
     () => configs.filter((c) => c.type === 's_line').map((c) => c.value).sort(),
     [configs]
   );
+  const customers = useMemo(
+    () => configs.filter((c) => c.type === 'customer').map((c) => c.value).sort(),
+    [configs]
+  );
 
   return {
     configs,
@@ -73,5 +77,6 @@ export function useConfiguration() {
     getBananaSuppliers: () => bananaSuppliers,
     getPineappleSuppliers: () => pineappleSuppliers,
     getSLines: () => sLines,
+    getCustomers: () => customers,
   };
 }

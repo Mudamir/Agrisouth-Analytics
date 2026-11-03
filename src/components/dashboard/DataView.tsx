@@ -58,7 +58,7 @@ const bananaPacks = ['13.5 KG A (4/5/6)', '13.5 KG B (4/5/6)', '13.5 KG A SH (7/
 const pineapplePacks = ['7C', '8C', '9C', '10C', '12C'];
 
 export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataViewProps) {
-  const { getPols, getDestinations, getBananaSuppliers, getPineappleSuppliers, getSLines, isLoading: configLoading } = useConfiguration();
+  const { getPols, getDestinations, getBananaSuppliers, getPineappleSuppliers, getSLines, getCustomers, isLoading: configLoading } = useConfiguration();
   const { userRole, isAdmin } = useAuth();
   const isViewer = userRole === 'viewer';
   const [isOpen, setIsOpen] = useState(false);
@@ -326,6 +326,19 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
   const pols = useMemo(() => getPols(), [getPols]);
   const sLines = useMemo(() => getSLines(), [getSLines]);
   const destinations = useMemo(() => getDestinations(), [getDestinations]);
+  const customers = useMemo(() => {
+    const fromConfig = getCustomers();
+    const fromRecords = Array.from(
+      new Set(
+        (data || [])
+          .map((record) => record.customerName?.trim())
+          .filter((name): name is string => Boolean(name))
+      )
+    );
+    return Array.from(new Set([...fromConfig, ...fromRecords])).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [getCustomers, data]);
 
   // Get unique years, weeks, and suppliers from data for dropdowns
   const uniqueYears = useMemo(() => {
@@ -1564,18 +1577,20 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
                             onValueChange={(v) => setNewRecord({ ...newRecord, customerName: v })}
                           >
                             <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select customer" />
+                              <SelectValue placeholder={configLoading ? 'Loading customers...' : 'Select customer'} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Mohammed Abdallah Sharbatly Co Ltd">
-                                Mohammed Abdallah Sharbatly Co Ltd
-                              </SelectItem>
-                              <SelectItem value="Santito Brands Inc">
-                                Santito Brands Inc
-                              </SelectItem>
-                              <SelectItem value="Sinofresh Tropical Fruits INC.">
-                                Sinofresh Tropical Fruits INC.
-                              </SelectItem>
+                              {customers.length === 0 ? (
+                                <div className="px-2 py-3 text-xs text-muted-foreground">
+                                  No customers configured. Add them in Configuration.
+                                </div>
+                              ) : (
+                                customers.map((customer) => (
+                                  <SelectItem key={customer} value={customer}>
+                                    {customer}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -2705,6 +2720,7 @@ export function DataView({ data, onAdd, onDelete, onUpdateInvoiceNumber }: DataV
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

@@ -23,11 +23,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Plus, Trash2, Settings, Save, MapPin, Ship, Package, Banana, RefreshCw, Loader2 } from 'lucide-react';
+import { Shield, Plus, Trash2, Settings, MapPin, Ship, Package, Banana, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PineappleIcon } from '@/components/dashboard/PineappleIcon';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +40,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type ConfigType = 'pol' | 'destination' | 'supplier_bananas' | 'supplier_pineapples' | 's_line';
+type ConfigType = 'pol' | 'destination' | 'supplier_bananas' | 'supplier_pineapples' | 's_line' | 'customer';
 
 interface ConfigValue {
   id: string;
@@ -50,6 +51,7 @@ interface ConfigValue {
 
 export function ConfigurationManagement() {
   const { isAdmin, userRole } = useAuth();
+  const queryClient = useQueryClient();
   const [configs, setConfigs] = useState<ConfigValue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,6 +61,10 @@ export function ConfigurationManagement() {
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [configToDelete, setConfigToDelete] = useState<ConfigValue | null>(null);
+
+  const refreshConfigCache = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['configuration-values'] });
+  };
 
   useEffect(() => {
     // Allow admin, manager, and user roles to access configuration
@@ -114,6 +120,9 @@ export function ConfigurationManagement() {
       { type: 'pol', value: 'DVO' },
       { type: 'pol', value: 'GES' },
       { type: 'destination', value: 'DAMMAM' },
+      { type: 'customer', value: 'Mohammed Abdallah Sharbatly Co Ltd' },
+      { type: 'customer', value: 'Santito Brands Inc' },
+      { type: 'customer', value: 'Sinofresh Tropical Fruits INC.' },
       { type: 'supplier_bananas', value: 'AGS PANABO' },
       { type: 'supplier_bananas', value: 'AGS SARAP' },
       { type: 'supplier_bananas', value: 'AGS TUPI' },
@@ -171,6 +180,7 @@ export function ConfigurationManagement() {
       toast.success('Configuration value added');
       setNewValue({ type: newValue.type, value: '' });
       await loadConfigs();
+      await refreshConfigCache();
     } catch (err: any) {
       console.error('Error adding config:', err);
       toast.error('Failed to add configuration value');
@@ -192,6 +202,7 @@ export function ConfigurationManagement() {
       setDeleteDialogOpen(false);
       setConfigToDelete(null);
       await loadConfigs();
+      await refreshConfigCache();
     } catch (err: any) {
       console.error('Error deleting config:', err);
       toast.error('Failed to delete configuration value');
@@ -210,6 +221,8 @@ export function ConfigurationManagement() {
         return 'Supplier (Pineapples)';
       case 's_line':
         return 'S.Line';
+      case 'customer':
+        return 'Customer';
       default:
         return type;
     }
@@ -227,6 +240,8 @@ export function ConfigurationManagement() {
         return 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800/50';
       case 's_line':
         return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50';
+      case 'customer':
+        return 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 border border-sky-200 dark:border-sky-800/50';
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300 border border-gray-200 dark:border-gray-800/50';
     }
@@ -244,6 +259,8 @@ export function ConfigurationManagement() {
         return PineappleIcon;
       case 's_line':
         return Package;
+      case 'customer':
+        return Users;
       default:
         return Settings;
     }
@@ -261,6 +278,8 @@ export function ConfigurationManagement() {
         return 'text-orange-600 dark:text-orange-400';
       case 's_line':
         return 'text-emerald-600 dark:text-emerald-400';
+      case 'customer':
+        return 'text-sky-600 dark:text-sky-400';
       default:
         return 'text-gray-600 dark:text-gray-400';
     }
@@ -278,6 +297,8 @@ export function ConfigurationManagement() {
         return 'bg-orange-500/10 border-orange-500/20';
       case 's_line':
         return 'bg-emerald-500/10 border-emerald-500/20';
+      case 'customer':
+        return 'bg-sky-500/10 border-sky-500/20';
       default:
         return 'bg-gray-500/10 border-gray-500/20';
     }
@@ -289,6 +310,7 @@ export function ConfigurationManagement() {
     supplier_bananas: configs.filter(c => c.type === 'supplier_bananas'),
     supplier_pineapples: configs.filter(c => c.type === 'supplier_pineapples'),
     s_line: configs.filter(c => c.type === 's_line'),
+    customer: configs.filter(c => c.type === 'customer'),
   };
 
   if (loading) {
@@ -325,7 +347,7 @@ export function ConfigurationManagement() {
             <div>
               <h1 className="text-3xl font-bold font-heading text-foreground tracking-tight">Configuration Management</h1>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Manage dropdown values for POL, Destination, Suppliers, and S.Line
+                Manage dropdown values for POL, Destination, Suppliers, S.Line, and Customers
               </p>
             </div>
           </div>
@@ -371,6 +393,7 @@ export function ConfigurationManagement() {
                 <SelectItem value="supplier_bananas">Supplier (Bananas)</SelectItem>
                 <SelectItem value="supplier_pineapples">Supplier (Pineapples)</SelectItem>
                 <SelectItem value="s_line">S.Line</SelectItem>
+                <SelectItem value="customer">Customer</SelectItem>
               </SelectContent>
             </Select>
           </div>
